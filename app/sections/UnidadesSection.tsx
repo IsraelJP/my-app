@@ -1,594 +1,376 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { THEME } from "../theme";
-import { API_BASE, formatDateTime, Tipo, Vehiculo, VehiculoDetalle } from "./common";
+import { useState, useEffect } from "react";
 
-function estatusBadge(estatus: string) {
-  if (estatus === "ACTIVO")        return THEME.badgeActivo;
-  if (estatus === "MANTENIMIENTO") return THEME.badgeMantenimiento;
-  return THEME.badgeInactivo;
-}
+import {
+  getVehiculos,
+  getVehiculo,
+  crearVehiculo,
+  actualizarVehiculo,
+  eliminarVehiculo
+} from "../services/vehiculos";
 
-function EmptyState() {
-  return (
-    <div className={`rounded-2xl ${THEME.surface} p-12 shadow-sm flex flex-col items-center gap-4 text-center`}>
-      <div className={`grid h-16 w-16 place-items-center rounded-2xl ${THEME.logo} text-3xl`}>
-        🚌
-      </div>
-      <div>
-        <p className={`text-base font-semibold ${THEME.heading}`}>Busca un vehículo para comenzar</p>
-        <p className={`mt-1 text-sm ${THEME.body}`}>
-          Ingresa un número de serie, matrícula o tipo en el campo de búsqueda.
-        </p>
-      </div>
-    </div>
-  );
-}
+import SearchBar from "../components/unidades/SearchBar";
+import VehiculosTable from "../components/unidades/VehiculosTable";
+import EmptyState from "../components/unidades/EmptyState";
+import Toast from "../components/unidades/Toast";
+import FiltrosVehiculos from "../components/unidades/FiltrosVehiculos";
+
+import ModalDetalle from "../components/unidades/ModalDetalle";
+import ModalCrear from "../components/unidades/ModalCrear";
+import ModalEditar from "../components/unidades/ModalEditar";
+import ModalEliminar from "../components/unidades/ModalEliminar";
+
+import { API_BASE } from "./common";
 
 export function UnidadesSection() {
-  // Búsqueda
-  const [query, setQuery]             = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Filtros
-  const [filtroTipo, setFiltroTipo]     = useState("");
-  const [filtroEstatus, setFiltroEstatus] = useState("");
-  // TODO: agregar filtro de marca cuando se añada al esquema de BD
+  const [vehiculos,setVehiculos] = useState<any[]>([]);
+  const [tipos,setTipos] = useState<any[]>([]);
 
-  // Datos
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [tipos, setTipos]         = useState<Tipo[]>([]);
+  const [loading,setLoading] = useState(false);
+  const [hasSearched,setHasSearched] = useState(false);
 
-  // Modal: Ver detalle
-  const [detalle, setDetalle]               = useState<VehiculoDetalle | null>(null);
-  const [detalleLoading, setDetalleLoading] = useState(false);
-  const [detalleError, setDetalleError]     = useState<string | null>(null);
+  const [query,setQuery] = useState("");
 
-  // Modal: Editar
-  const [editTarget, setEditTarget]                 = useState<Vehiculo | null>(null);
-  const [editForm, setEditForm]                     = useState({ matricula: "", estatus: "", id_tipo: "" });
-  const [editInitial, setEditInitial]               = useState({ matricula: "", estatus: "", id_tipo: "" });
-  const [editHydrateLoading, setEditHydrateLoading] = useState(false);
-  const [editLoading, setEditLoading]               = useState(false);
-  const [editError, setEditError]                   = useState<string | null>(null);
+  const [toast,setToast] = useState<any>(null);
 
-  // Modal: Eliminar
-  const [deleteTarget, setDeleteTarget]   = useState<Vehiculo | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError]     = useState<string | null>(null);
+  const [offset,setOffset] = useState(0);
+  const limit = 6;
 
-  // Modal: Nuevo vehículo
-  const [showCreate, setShowCreate]       = useState(false);
-  const [createForm, setCreateForm]       = useState({ num_serie: "", matricula: "", id_tipo: "", estatus: "ACTIVO" });
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError]     = useState<string | null>(null);
+  const [showFilters,setShowFilters] = useState(false);
 
-  // Toast
-  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
-  const showToast = (msg: string, type: "ok" | "err") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  const [filtros,setFiltros] = useState({
+    estatus:"",
+    id_tipo:""
+  });
+
+  const showToast = (msg:string,type:"ok"|"err")=>{
+    setToast({msg,type});
+    setTimeout(()=>setToast(null),3000);
   };
 
-  useEffect(() => {
-    fetch(`${API_BASE}/tipos`).then((r) => r.json()).then(setTipos).catch(() => {});
-  }, []);
+  // MODALS
 
-  // Tipos únicos derivados de los vehículos cargados (para el selector de filtro)
-  const tiposEnResultados = useMemo(() => {
-    const set = new Set<string>();
-    vehiculos.forEach((v) => { if (v.descripcion) set.add(v.descripcion); });
-    return Array.from(set).sort();
-  }, [vehiculos]);
+  const [detalle,setDetalle] = useState<any>(null);
+  const [detalleLoading,setDetalleLoading] = useState(false);
+  const [detalleError,setDetalleError] = useState<any>(null);
 
-  // Conteo de filtros activos (para el badge del botón)
-  const filtrosActivos = [filtroTipo, filtroEstatus].filter(Boolean).length;
-  // TODO: incluir filtro de marca en el conteo cuando se implemente
+  const [deleteTarget,setDeleteTarget] = useState<any>(null);
+  const [deleteLoading,setDeleteLoading] = useState(false);
+  const [deleteError,setDeleteError] = useState<any>(null);
 
-  const handleSearch = async () => {
-    setHasSearched(true);
+  const [editTarget,setEditTarget] = useState<any>(null);
+  const [editForm,setEditForm] = useState<any>({
+    matricula:"",
+    estatus:"ACTIVO",
+    id_tipo:""
+  });
+
+  const [editLoading,setEditLoading] = useState(false);
+  const [editError,setEditError] = useState<any>(null);
+
+  const [showCreate,setShowCreate] = useState(false);
+
+  const [createForm,setCreateForm] = useState<any>({
+    num_serie:"",
+    matricula:"",
+    id_tipo:"",
+    estatus:"ACTIVO"
+  });
+
+  const [createLoading,setCreateLoading] = useState(false);
+  const [createError,setCreateError] = useState<any>(null);
+
+  // CARGAR TIPOS
+
+  useEffect(()=>{
+
+    const fetchTipos = async()=>{
+
+      try{
+
+        const res = await fetch(`${API_BASE}/tipos`);
+        const data = await res.json();
+
+        if(Array.isArray(data)){
+          setTipos(data);
+        }else if(data.tipos){
+          setTipos(data.tipos);
+        }else{
+          setTipos([]);
+        }
+
+      }catch(e){
+        console.error("Error cargando tipos",e);
+      }
+
+    };
+
+    fetchTipos();
+
+  },[]);
+
+  // FETCH VEHICULOS
+
+  const fetchVehiculos = async(reset=false)=>{
+
     setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos`);
-      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-      setVehiculos(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
+
+    try{
+
+      const params:any = {
+        offset: reset ? 0 : offset,
+        limit
+      };
+
+      if(filtros.estatus) params.estatus = filtros.estatus;
+      if(filtros.id_tipo) params.id_tipo = filtros.id_tipo;
+      if(query) params.num_serie = query;
+
+      const data = await getVehiculos(params);
+
+      const lista = data?.vehiculos ?? [];
+
+      if(reset){
+
+        setVehiculos(lista);
+        setOffset(limit);
+
+      }else{
+
+        setVehiculos(prev=>[...prev,...lista]);
+        setOffset(prev=>prev+limit);
+
+      }
+
+    }catch(e:any){
+
+      showToast(e.message,"err");
+
     }
+
+    setLoading(false);
+
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+  const handleSearch = ()=>{
+    setHasSearched(true);
+    fetchVehiculos(true);
   };
 
-  const limpiarFiltros = () => {
-    setFiltroTipo("");
-    setFiltroEstatus("");
-    // TODO: limpiar filtro de marca cuando se implemente
-  };
+  // VER DETALLE
 
-  const vehiculosFiltrados = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return vehiculos.filter((v) => {
-      const matchQuery =
-        q === "" ||
-        v.num_serie.toLowerCase().includes(q) ||
-        (v.descripcion ?? v.tipo ?? "").toLowerCase().includes(q);
-      const matchTipo   = !filtroTipo   || (v.descripcion ?? v.tipo ?? "") === filtroTipo;
-      const matchEstatus = !filtroEstatus || v.estatus === filtroEstatus;
-      // TODO: agregar matchMarca cuando el campo esté disponible en la BD
-      return matchQuery && matchTipo && matchEstatus;
-    });
-  }, [vehiculos, query, filtroTipo, filtroEstatus]);
+  const handleVer = async(numSerie:string)=>{
 
-  // ── Handlers CRUD ──────────────────────────────────────────────────────────
-
-  const handleVer = async (num_serie: string) => {
-    setDetalle(null);
-    setDetalleError(null);
     setDetalleLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(num_serie)}`);
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      setDetalle(Array.isArray(data) ? data[0] : data);
-    } catch (err) {
-      setDetalleError(err instanceof Error ? err.message : "Error al cargar detalle");
-    } finally {
-      setDetalleLoading(false);
+    setDetalleError(null);
+
+    try{
+
+      const data = await getVehiculo(numSerie);
+      console.log(data);
+      setDetalle(data[0]);
+
+    }catch(e:any){
+
+      setDetalleError(e.message);
+
     }
+
+    setDetalleLoading(false);
+
   };
 
-  const handleEditOpen = async (v: Vehiculo) => {
-    setEditTarget(v);
-    setEditError(null);
-    setEditHydrateLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(v.num_serie)}`);
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      const d = (Array.isArray(data) ? data[0] : data) as VehiculoDetalle;
-      const next = { matricula: d?.matricula ?? "", estatus: d?.estatus ?? v.estatus, id_tipo: d?.id_tipo ? String(d.id_tipo) : "" };
-      setEditForm(next);
-      setEditInitial(next);
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Error al cargar datos");
-      setEditForm({ matricula: "", estatus: v.estatus, id_tipo: "" });
-      setEditInitial({ matricula: "", estatus: v.estatus, id_tipo: "" });
-    } finally {
-      setEditHydrateLoading(false);
-    }
-  };
+  // CREAR
 
-  const handleEditSave = async () => {
-    if (!editTarget) return;
-    setEditLoading(true);
-    setEditError(null);
-    const body: Record<string, string | number> = {};
-    if (editForm.matricula.trim() !== editInitial.matricula.trim()) body.matricula = editForm.matricula.trim();
-    if (editForm.estatus !== editInitial.estatus) body.estatus = editForm.estatus;
-    if (editForm.id_tipo !== editInitial.id_tipo && editForm.id_tipo) body.id_tipo = Number(editForm.id_tipo);
-    if (Object.keys(body).length === 0) {
-      setEditError("Ingresa al menos un campo para actualizar.");
-      setEditLoading(false);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(editTarget.num_serie)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.detail ?? `Error ${res.status}`);
-      }
-      showToast("Vehículo actualizado.", "ok");
-      setEditTarget(null);
-      handleSearch();
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Error al actualizar");
-    } finally {
-      setEditLoading(false);
-    }
-  };
+  const handleCreate = async()=>{
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
-    setDeleteLoading(true);
-    setDeleteError(null);
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(deleteTarget.num_serie)}`, { method: "DELETE" });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.detail ?? `Error ${res.status}`);
-      }
-      showToast(`Vehículo ${deleteTarget.num_serie} eliminado.`, "ok");
-      setDeleteTarget(null);
-      handleSearch();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Error al eliminar");
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const handleCreateSave = async () => {
     setCreateLoading(true);
     setCreateError(null);
-    if (!createForm.num_serie.trim() || !createForm.matricula.trim() || !createForm.id_tipo) {
-      setCreateError("Todos los campos son obligatorios.");
-      setCreateLoading(false);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/vehiculos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          num_serie: createForm.num_serie.trim(),
-          matricula: createForm.matricula.trim(),
-          id_tipo:   Number(createForm.id_tipo),
-          estatus:   createForm.estatus,
-        }),
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.detail ?? `Error ${res.status}`);
-      }
-      showToast("Vehículo creado correctamente.", "ok");
+
+    try{
+
+      await crearVehiculo(createForm);
+
+      showToast("Vehículo creado","ok");
+
       setShowCreate(false);
-      setCreateForm({ num_serie: "", matricula: "", id_tipo: "", estatus: "ACTIVO" });
       handleSearch();
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Error al crear");
-    } finally {
-      setCreateLoading(false);
+
+    }catch(e:any){
+
+      setCreateError(e.message);
+
     }
+
+    setCreateLoading(false);
+
   };
 
-  const handleExport = async () => {
-    const response = await fetch(`${API_BASE}/vehiculos/export`);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "vehiculos.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+  // EDITAR
+
+  const handleEdit = async()=>{
+
+    if(!editTarget) return;
+
+    setEditLoading(true);
+    setEditError(null);
+
+    try{
+
+      await actualizarVehiculo(editTarget.num_serie,editForm);
+
+      showToast("Vehículo actualizado","ok");
+
+      setEditTarget(null);
+      handleSearch();
+
+    }catch(e:any){
+
+      setEditError(e.message);
+
+    }
+
+    setEditLoading(false);
+
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  return (
+  // ELIMINAR
+
+  const handleDelete = async()=>{
+
+    if(!deleteTarget) return;
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try{
+
+      await eliminarVehiculo(deleteTarget.num_serie);
+
+      showToast("Vehículo eliminado","ok");
+
+      setDeleteTarget(null);
+      handleSearch();
+
+    }catch(e:any){
+
+      setDeleteError(e.message);
+
+    }
+
+    setDeleteLoading(false);
+
+  };
+
+  return(
+
     <>
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-5 right-5 z-[100] ${toast.type === "ok" ? THEME.toastOk : THEME.toastErr}`}>
-          {toast.msg}
-        </div>
+
+      <Toast toast={toast}/>
+
+      <SearchBar
+        query={query}
+        setQuery={setQuery}
+        onSearch={handleSearch}
+        filtrosActivos={Object.values(filtros).filter(v=>v).length}
+        onToggleFilters={()=>setShowFilters(!showFilters)}
+        onNuevo={()=>setShowCreate(true)}
+      />
+
+      {showFilters && (
+
+        <FiltrosVehiculos
+          filtros={filtros}
+          setFiltros={setFiltros}
+          tipos={tipos}
+        />
+
       )}
 
-      {/* Barra de búsqueda */}
-      <section className={`rounded-2xl ${THEME.surface} p-4 shadow-sm`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className={THEME.label}>Buscar vehículo</label>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Número de serie o tipo de vehículo…"
-              className={`mt-1 w-full ${THEME.input}`}
-            />
-          </div>
-          <button onClick={handleSearch} className={THEME.btnPrimary}>Buscar</button>
+      {!hasSearched
+        ? <EmptyState/>
+        : <VehiculosTable
+            vehiculos={vehiculos}
+            loading={loading}
+            onVer={handleVer}
+            onEdit={(v:any)=>{
+
+              setEditTarget(v);
+
+              setEditForm({
+                matricula:v.matricula,
+                estatus:v.estatus,
+                id_tipo:v.id_tipo
+              });
+
+            }}
+            onDelete={(v:any)=>setDeleteTarget(v)}
+          />
+      }
+
+      {hasSearched && !loading && vehiculos.length >= limit && (
+
+        <div style={{textAlign:"center",marginTop:"20px"}}>
+
           <button
-            onClick={() => setShowFilters((v) => !v)}
-            className={[
-              THEME.btnSecondary,
-              showFilters ? "ring-indigo-300 text-indigo-600" : "",
-            ].join(" ")}
+            onClick={()=>fetchVehiculos(false)}
+            style={{
+              padding:"10px 18px",
+              borderRadius:"8px",
+              background:"#6c63ff",
+              color:"white",
+              border:"none",
+              cursor:"pointer"
+            }}
           >
-            Filtros
-            {filtrosActivos > 0 && (
-              <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white">
-                {filtrosActivos}
-              </span>
-            )}
+            Mostrar siguientes
           </button>
-          <button onClick={() => { setShowCreate(true); setCreateError(null); }} className={THEME.btnSecondary}>
-            + Nuevo
-          </button>
+
         </div>
 
-        {/* Panel de filtros */}
-        {showFilters && (
-          <div className={`mt-4 rounded-xl ${THEME.inset} p-4`}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {/* TODO: agregar filtro de Marca cuando se añada el campo a la tabla VEHICULOS */}
-
-              <div>
-                <label className={THEME.label}>Tipo de vehículo</label>
-                <select
-                  value={filtroTipo}
-                  onChange={(e) => setFiltroTipo(e.target.value)}
-                  className={`mt-1 w-full ${THEME.select}`}
-                >
-                  <option value="">Todos los tipos</option>
-                  {tiposEnResultados.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={THEME.label}>Estatus</label>
-                <select
-                  value={filtroEstatus}
-                  onChange={(e) => setFiltroEstatus(e.target.value)}
-                  className={`mt-1 w-full ${THEME.select}`}
-                >
-                  <option value="">Todos</option>
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                </select>
-              </div>
-            </div>
-
-            {filtrosActivos > 0 && (
-              <button onClick={limpiarFiltros} className={`mt-3 text-xs ${THEME.body} underline underline-offset-2`}>
-                Limpiar filtros
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Estado vacío / resultados */}
-      {!hasSearched ? (
-        <EmptyState />
-      ) : (
-        <section className={`rounded-2xl ${THEME.surface} p-4 shadow-sm`}>
-          {error && <div className={`mb-4 ${THEME.errorBox}`}>{error}</div>}
-
-          <div className={THEME.tableWrapper}>
-            <table className={THEME.table}>
-              <thead className={THEME.thead}>
-                <tr>
-                  <th className={`${THEME.th} w-48`}>Número de serie</th>
-                  <th className={`${THEME.th} w-52`}>Tipo</th>
-                  <th className={`${THEME.th} w-36`}>Estatus</th>
-                  <th className={`${THEME.th} text-right`}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className={`px-4 py-6 text-center text-sm ${THEME.muted} animate-pulse`}>
-                      Buscando vehículos…
-                    </td>
-                  </tr>
-                ) : vehiculosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
-                      No se encontraron vehículos con esos criterios.
-                    </td>
-                  </tr>
-                ) : (
-                  vehiculosFiltrados.map((v) => (
-                    <tr key={v.num_serie} className={THEME.trow}>
-                      <td className={THEME.tcellMono}>{v.num_serie}</td>
-                      <td className={THEME.tcell}>{v.descripcion ?? v.tipo ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(v.estatus)}`}>
-                          {v.estatus}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-2">
-                          <button onClick={() => handleVer(v.num_serie)}                              className={THEME.btnGhost}>Ver</button>
-                          <button onClick={() => handleEditOpen(v)}                                   className={THEME.btnEdit}>Editar</button>
-                          <button onClick={() => { setDeleteTarget(v); setDeleteError(null); }}       className={THEME.btnDelete}>Eliminar</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {!loading && vehiculos.length > 0 && (
-            <div className={`mt-4 flex items-center justify-between text-xs ${THEME.muted}`}>
-              <span>{vehiculosFiltrados.length} de {vehiculos.length} vehículo(s)</span>
-              <button onClick={handleExport} className={THEME.btnSuccess}>Exportar CSV</button>
-            </div>
-          )}
-        </section>
       )}
 
-      {/* ── Modal: Ver detalle ─────────────────────────────────────────────── */}
-      {(detalle || detalleLoading || detalleError) && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
-          onClick={(e) => { if (e.target === e.currentTarget) { setDetalle(null); setDetalleError(null); } }}
-        >
-          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <h2 className={`text-lg font-bold ${THEME.heading}`}>Detalle del vehículo</h2>
-                {detalle && <p className={`mt-0.5 ${THEME.mono}`}>{detalle.num_serie}</p>}
-              </div>
-              <button onClick={() => { setDetalle(null); setDetalleError(null); }} className={THEME.btnGhost}>Cerrar ✕</button>
-            </div>
-            {detalleLoading && (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => <div key={i} className={THEME.skeleton} />)}
-              </div>
-            )}
-            {detalleError && <div className={THEME.errorBox}>{detalleError}</div>}
-            {detalle && !detalleLoading && (
-              <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {[
-                  { label: "ID",                    value: detalle.id_vehiculo },
-                  { label: "Número de serie",       value: detalle.num_serie },
-                  { label: "Matrícula",             value: detalle.matricula },
-                  { label: "Tipo",                  value: detalle.descripcion },
-                  { label: "Estatus",               value: detalle.estatus, badge: true },
-                  { label: "En mantenimiento",      value: detalle.en_mantenimiento },
-                  { label: "Tipo mantenimiento",    value: detalle.tipo_mantenimiento ?? "—" },
-                  { label: "Ingreso a taller",      value: formatDateTime(detalle.fecha_ingreso_taller) },
-                  { label: "Inicio mantenimiento",  value: formatDateTime(detalle.fecha_inicio_mantenimiento) },
-                  { label: "Término mantenimiento", value: formatDateTime(detalle.fecha_termino_mantenimiento) },
-                  { label: "Egreso de taller",      value: formatDateTime(detalle.fecha_egreso_taller) },
-                ].map(({ label, value, badge }) => (
-                  <div key={label} className={`rounded-xl ${THEME.inset} px-3 py-2`}>
-                    <dt className={THEME.label}>{label}</dt>
-                    <dd className={`mt-0.5 text-sm font-medium ${THEME.heading}`}>
-                      {badge ? (
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(String(value))}`}>
-                          {value}
-                        </span>
-                      ) : String(value ?? "—")}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </div>
-        </div>
-      )}
+      <ModalDetalle
+        detalle={detalle}
+        loading={detalleLoading}
+        error={detalleError}
+        onClose={()=>setDetalle(null)}
+      />
 
-      {/* ── Modal: Editar ─────────────────────────────────────────────────── */}
-      {editTarget && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
-          onClick={(e) => { if (e.target === e.currentTarget) setEditTarget(null); }}
-        >
-          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <h2 className={`text-lg font-bold ${THEME.heading}`}>Editar vehículo</h2>
-                <p className={`mt-0.5 ${THEME.mono}`}>{editTarget.num_serie}</p>
-              </div>
-              <button onClick={() => setEditTarget(null)} className={THEME.btnGhost}>Cerrar ✕</button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className={THEME.label}>Matrícula</label>
-                <input value={editForm.matricula} onChange={(e) => setEditForm((f) => ({ ...f, matricula: e.target.value }))}
-                  placeholder="Ej. ABC1234" disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.input}`} />
-              </div>
-              <div>
-                <label className={THEME.label}>Estatus</label>
-                <select value={editForm.estatus} onChange={(e) => setEditForm((f) => ({ ...f, estatus: e.target.value }))}
-                  disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.select}`}>
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                </select>
-              </div>
-              <div>
-                <label className={THEME.label}>Tipo de vehículo</label>
-                <select value={editForm.id_tipo} onChange={(e) => setEditForm((f) => ({ ...f, id_tipo: e.target.value }))}
-                  disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.select}`}>
-                  <option value="">— Selecciona tipo —</option>
-                  {tipos.map((t) => <option key={t.id_tipo} value={t.id_tipo}>{t.descripcion}</option>)}
-                </select>
-              </div>
-              {editHydrateLoading && <p className={`text-xs ${THEME.muted}`}>Cargando datos actuales...</p>}
-              {editError && <div className={THEME.errorBox}>{editError}</div>}
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setEditTarget(null)} className={THEME.btnSecondary}>Cancelar</button>
-                <button onClick={handleEditSave} disabled={editLoading || editHydrateLoading} className={THEME.btnPrimary}>
-                  {editLoading ? "Guardando…" : "Guardar cambios"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalEliminar
+        target={deleteTarget}
+        loading={deleteLoading}
+        error={deleteError}
+        onClose={()=>setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
 
-      {/* ── Modal: Eliminar ───────────────────────────────────────────────── */}
-      {deleteTarget && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
-          onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
-        >
-          <div className={`relative w-full max-w-sm rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
-            <h2 className={`text-lg font-bold ${THEME.heading}`}>¿Eliminar vehículo?</h2>
-            <p className={`mt-2 text-sm ${THEME.body}`}>Esta acción no se puede deshacer. Se eliminará:</p>
-            <p className="mt-2 font-mono text-sm font-semibold text-rose-600">{deleteTarget.num_serie}</p>
-            {deleteError && <div className={`mt-3 ${THEME.errorBox}`}>{deleteError}</div>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setDeleteTarget(null)} className={THEME.btnSecondary}>Cancelar</button>
-              <button onClick={handleDeleteConfirm} disabled={deleteLoading} className={THEME.btnDanger}>
-                {deleteLoading ? "Eliminando…" : "Sí, eliminar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalCrear
+        show={showCreate}
+        form={createForm}
+        setForm={setCreateForm}
+        tipos={tipos}
+        loading={createLoading}
+        error={createError}
+        onClose={()=>setShowCreate(false)}
+        onSave={handleCreate}
+      />
 
-      {/* ── Modal: Nuevo vehículo ─────────────────────────────────────────── */}
-      {showCreate && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}
-        >
-          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <h2 className={`text-lg font-bold ${THEME.heading}`}>Nuevo vehículo</h2>
-              <button onClick={() => setShowCreate(false)} className={THEME.btnGhost}>Cerrar ✕</button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className={THEME.label}>Número de serie <span className="text-rose-500">*</span></label>
-                <input value={createForm.num_serie} onChange={(e) => setCreateForm((f) => ({ ...f, num_serie: e.target.value }))}
-                  placeholder="Ej. 1HGCM82633A123456" className={`mt-1 w-full ${THEME.input}`} />
-              </div>
-              <div>
-                <label className={THEME.label}>Matrícula <span className="text-rose-500">*</span></label>
-                <input value={createForm.matricula} onChange={(e) => setCreateForm((f) => ({ ...f, matricula: e.target.value }))}
-                  placeholder="Ej. ABC1234" className={`mt-1 w-full ${THEME.input}`} />
-              </div>
-              {/* TODO: agregar campo de Marca cuando se añada a la tabla VEHICULOS */}
-              <div>
-                <label className={THEME.label}>Tipo de vehículo <span className="text-rose-500">*</span></label>
-                <select value={createForm.id_tipo} onChange={(e) => setCreateForm((f) => ({ ...f, id_tipo: e.target.value }))}
-                  className={`mt-1 w-full ${THEME.select}`}>
-                  <option value="">— Selecciona tipo —</option>
-                  {tipos.map((t) => <option key={t.id_tipo} value={t.id_tipo}>{t.descripcion}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={THEME.label}>Estatus inicial</label>
-                <select value={createForm.estatus} onChange={(e) => setCreateForm((f) => ({ ...f, estatus: e.target.value }))}
-                  className={`mt-1 w-full ${THEME.select}`}>
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                </select>
-              </div>
-              {createError && <div className={THEME.errorBox}>{createError}</div>}
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setShowCreate(false)} className={THEME.btnSecondary}>Cancelar</button>
-                <button onClick={handleCreateSave} disabled={createLoading} className={THEME.btnPrimary}>
-                  {createLoading ? "Creando…" : "Crear vehículo"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalEditar
+        target={editTarget}
+        form={editForm}
+        setForm={setEditForm}
+        tipos={tipos}
+        loading={editLoading}
+        error={editError}
+        onClose={()=>setEditTarget(null)}
+        onSave={handleEdit}
+      />
+
     </>
+
   );
+
 }
