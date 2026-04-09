@@ -67,6 +67,11 @@ export function UnidadesSection() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError]     = useState<string | null>(null);
 
+  //Modal Insertar- Mantenimiento
+    const [mantTarget, setMantTarget] = useState<Vehiculo | null>(null);
+    const [mantForm, setMantForm] = useState({id_tipo_mantenimiento: "", fecha_inicio: ""});
+    const [mantLoading, setMantLoading] = useState(false);
+    const [mantError, setMantError] = useState<string | null>(null);
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
   const showToast = (msg: string, type: "ok" | "err") => {
@@ -265,6 +270,55 @@ export function UnidadesSection() {
     window.URL.revokeObjectURL(url);
   };
 
+    //Handle de mantenimiento, insertar
+    const handleMantenimientoOpen = (v: Vehiculo) => {
+      if (v.estatus !== "ACTIVO") return;
+
+      setMantTarget(v);
+      setMantError(null);
+
+      setMantForm({
+        id_tipo_mantenimiento: "",
+        fecha_inicio: new Date().toISOString().slice(0,16)
+      });
+    };
+    const handleCrearMantenimiento = async () => {
+      if (!mantTarget) return;
+
+      if (!mantForm.id_tipo_mantenimiento || !mantForm.fecha_inicio) {
+        setMantError("Todos los campos son obligatorios.");
+        return;
+      }
+
+      setMantLoading(true);
+      setMantError(null);
+
+      try {
+        const res = await fetch(`${API_BASE}/mantenimientos/insertar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            num_serie: mantTarget.num_serie,
+            id_tipo_mantenimiento: Number(mantForm.id_tipo_mantenimiento),
+            fecha_inicio_mantenimiento: mantForm.fecha_inicio
+          }),
+        });
+
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.detail ?? `Error ${res.status}`);
+        }
+
+        showToast("Mantenimiento iniciado.", "ok");
+        setMantTarget(null);
+        handleSearch();
+
+      } catch (err) {
+        setMantError(err instanceof Error ? err.message : "Error al guardar");
+      } finally {
+        setMantLoading(false);
+      }
+    };
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
@@ -397,8 +451,12 @@ export function UnidadesSection() {
                           <button onClick={() => handleVer(v.num_serie)}                              className={THEME.btnGhost}>Ver</button>
                           <button onClick={() => handleEditOpen(v)}                                   className={THEME.btnEdit}>Editar</button>
                           <button onClick={() => { setDeleteTarget(v); setDeleteError(null); }}       className={THEME.btnDelete}>Eliminar</button>
+                          {v.estatus === "ACTIVO" && (
+                          <button
+                            onClick={() => handleMantenimientoOpen(v)}                                className={THEME.btnSecondary}>Mantenimiento</button>)}
                         </div>
                       </td>
+
                     </tr>
                   ))
                 )}
@@ -589,6 +647,73 @@ export function UnidadesSection() {
           </div>
         </div>
       )}
+        {mantTarget && (
+  <div
+    className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
+    onClick={(e) => { if (e.target === e.currentTarget) setMantTarget(null); }}
+  >
+    <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
+
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h2 className={`text-lg font-bold ${THEME.heading}`}>
+            Agregar mantenimiento
+          </h2>
+          <p className={THEME.mono}>{mantTarget.num_serie}</p>
+        </div>
+        <button onClick={() => setMantTarget(null)} className={THEME.btnGhost}>
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-4">
+
+        {/* Tipo mantenimiento */}
+        <div>
+          <label className={THEME.label}>Tipo de mantenimiento</label>
+          <select
+            value={mantForm.id_tipo_mantenimiento}
+            onChange={(e) => setMantForm(f => ({ ...f, id_tipo_mantenimiento: e.target.value }))}
+            className={`mt-1 w-full ${THEME.select}`}
+          >
+            <option value="">— Selecciona —</option>
+            <option value="1">Preventivo</option>
+            <option value="2">Correctivo</option>
+            <option value="3">Mayor</option>
+          </select>
+        </div>
+
+        {/* Fecha */}
+        <div>
+          <label className={THEME.label}>Fecha de inicio del mantenimiento</label>
+          <input
+            type="datetime-local"
+            value={mantForm.fecha_ingreso}
+            onChange={(e) => setMantForm(f => ({ ...f, fecha_inicio: e.target.value }))}
+            className={`mt-1 w-full ${THEME.input}`}
+          />
+        </div>
+
+        {mantError && <div className={THEME.errorBox}>{mantError}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={() => setMantTarget(null)} className={THEME.btnSecondary}>
+            Cancelar
+          </button>
+
+          <button
+            onClick={handleCrearMantenimiento}
+            disabled={mantLoading}
+            className={THEME.btnPrimary}
+          >
+            {mantLoading ? "Guardando..." : "Iniciar mantenimiento"}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
     </>
   );
 }
