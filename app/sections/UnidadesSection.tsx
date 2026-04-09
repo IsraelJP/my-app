@@ -12,7 +12,6 @@ import {
 
 import SearchBar from "../components/unidades/SearchBar";
 import VehiculosTable from "../components/unidades/VehiculosTable";
-import EmptyState from "../components/unidades/EmptyState";
 import Toast from "../components/unidades/Toast";
 import FiltrosVehiculos from "../components/unidades/FiltrosVehiculos";
 
@@ -20,133 +19,136 @@ import ModalDetalle from "../components/unidades/ModalDetalle";
 import ModalCrear from "../components/unidades/ModalCrear";
 import ModalEditar from "../components/unidades/ModalEditar";
 import ModalEliminar from "../components/unidades/ModalEliminar";
+import { getMarcas } from "../services/marcas";
 
 import { API_BASE } from "./common";
 
 export function UnidadesSection() {
 
-  const [vehiculos,setVehiculos] = useState<any[]>([]);
-  const [tipos,setTipos] = useState<any[]>([]);
+  const [vehiculos, setVehiculos] = useState<any[]>([]);
+  const [tipos, setTipos] = useState<any[]>([]);
+  const [marcas, setMarcas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [loading,setLoading] = useState(false);
-  const [hasSearched,setHasSearched] = useState(false);
+  const [query, setQuery] = useState("");
 
-  const [query,setQuery] = useState("");
+  const [toast, setToast] = useState<any>(null);
 
-  const [toast,setToast] = useState<any>(null);
-
-  const [offset,setOffset] = useState(0);
+  const [offset, setOffset] = useState(0);
   const limit = 6;
 
-  const [showFilters,setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const [filtros,setFiltros] = useState({
-    estatus:"",
-    id_tipo:""
+  const [filtros, setFiltros] = useState({
+    estatus: "",
+    id_tipo: "",
+    id_marca: "",
+    orden: "desc"
   });
-
-  const showToast = (msg:string,type:"ok"|"err")=>{
-    setToast({msg,type});
-    setTimeout(()=>setToast(null),3000);
+  const showToast = (msg: string, type: "ok" | "err") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
   // MODALS
 
-  const [detalle,setDetalle] = useState<any>(null);
-  const [detalleLoading,setDetalleLoading] = useState(false);
-  const [detalleError,setDetalleError] = useState<any>(null);
+  const [detalle, setDetalle] = useState<any>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
+  const [detalleError, setDetalleError] = useState<any>(null);
 
-  const [deleteTarget,setDeleteTarget] = useState<any>(null);
-  const [deleteLoading,setDeleteLoading] = useState(false);
-  const [deleteError,setDeleteError] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<any>(null);
 
-  const [editTarget,setEditTarget] = useState<any>(null);
-  const [editForm,setEditForm] = useState<any>({
-    matricula:"",
-    estatus:"ACTIVO",
-    id_tipo:""
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({
+    matricula: "",
+    estatus: "ACTIVO",
+    id_tipo: ""
   });
 
-  const [editLoading,setEditLoading] = useState(false);
-  const [editError,setEditError] = useState<any>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<any>(null);
 
-  const [showCreate,setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
-  const [createForm,setCreateForm] = useState<any>({
-    num_serie:"",
-    matricula:"",
-    id_tipo:"",
-    estatus:"ACTIVO"
+  const [createForm, setCreateForm] = useState<any>({
+    num_serie: "",
+    matricula: "",
+    id_tipo: "",
+    estatus: "ACTIVO"
   });
 
-  const [createLoading,setCreateLoading] = useState(false);
-  const [createError,setCreateError] = useState<any>(null);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<any>(null);
 
-  // CARGAR TIPOS
+  // CARGAR TIPOS & MARCAS
 
-  useEffect(()=>{
+  useEffect(() => {
 
-    const fetchTipos = async()=>{
+    const fetchData = async () => {
 
-      try{
+      try {
 
-        const res = await fetch(`${API_BASE}/tipos`);
-        const data = await res.json();
+        const resTipos = await fetch(`${API_BASE}/tipos`);
+        const dataTipos = await resTipos.json();
 
-        if(Array.isArray(data)){
-          setTipos(data);
-        }else if(data.tipos){
-          setTipos(data.tipos);
-        }else{
+
+        if (Array.isArray(dataTipos)) {
+          setTipos(dataTipos);
+        } else if (dataTipos.tipos) {
+          setTipos(dataTipos.tipos);
+        } else {
           setTipos([]);
         }
 
-      }catch(e){
-        console.error("Error cargando tipos",e);
+        const dataMarcas = await getMarcas();
+
+        const listaMarcas = Array.isArray(dataMarcas)
+          ? dataMarcas
+          : dataMarcas.marcas ?? [];
+
+        setMarcas(listaMarcas);
+
+      } catch (e) {
+        console.error("Error cargando datos", e);
       }
 
     };
 
-    fetchTipos();
+    fetchData();
 
-  },[]);
+  }, []);
 
   // FETCH VEHICULOS
 
-  const fetchVehiculos = async(reset=false)=>{
+  const fetchVehiculos = async (offsetValue: number) => {
 
     setLoading(true);
 
-    try{
+    try {
 
-      const params:any = {
-        offset: reset ? 0 : offset,
+      const params: any = {
+        offset: offsetValue,
         limit
       };
 
-      if(filtros.estatus) params.estatus = filtros.estatus;
-      if(filtros.id_tipo) params.id_tipo = filtros.id_tipo;
-      if(query) params.num_serie = query;
+      if (filtros.estatus) params.estatus = filtros.estatus;
+      if (filtros.id_tipo) params.id_tipo = filtros.id_tipo;
+      if (filtros.id_marca) params.id_marca = filtros.id_marca;
+      if (query) params.query = query;
 
+      params.orden = filtros.orden;
       const data = await getVehiculos(params);
 
       const lista = data?.vehiculos ?? [];
 
-      if(reset){
+      setVehiculos(lista);
+      setOffset(offsetValue);
 
-        setVehiculos(lista);
-        setOffset(limit);
+    } catch (e: any) {
 
-      }else{
-
-        setVehiculos(prev=>[...prev,...lista]);
-        setOffset(prev=>prev+limit);
-
-      }
-
-    }catch(e:any){
-
-      showToast(e.message,"err");
+      showToast(e.message, "err");
 
     }
 
@@ -154,25 +156,64 @@ export function UnidadesSection() {
 
   };
 
-  const handleSearch = ()=>{
-    setHasSearched(true);
-    fetchVehiculos(true);
+  // CARGA INICIAL
+
+  useEffect(() => {
+
+    fetchVehiculos(0);
+
+  }, []);
+
+  // BUSQUEDA AUTOMATICA
+
+  useEffect(() => {
+
+    const delay = setTimeout(() => {
+      fetchVehiculos(0);
+    }, 500);
+
+    return () => clearTimeout(delay);
+
+  }, [query]);
+
+  // FILTROS AUTOMATICOS
+
+  useEffect(() => {
+
+    setOffset(0);
+    fetchVehiculos(0);
+
+  }, [filtros]);
+
+  const handleNext = () => {
+    fetchVehiculos(offset + limit);
+  };
+
+  const handlePrev = () => {
+    if (offset === 0) return;
+    fetchVehiculos(offset - limit);
   };
 
   // VER DETALLE
 
-  const handleVer = async(numSerie:string)=>{
+  const handleVer = async (numSerie: string) => {
 
     setDetalleLoading(true);
     setDetalleError(null);
 
-    try{
+    try {
 
       const data = await getVehiculo(numSerie);
-      console.log(data);
-      setDetalle(data[0]);
 
-    }catch(e:any){
+      console.log("Detalle recibido:", data);
+
+      if (Array.isArray(data)) {
+        setDetalle(data[0]);
+      } else {
+        setDetalle(data);
+      }
+
+    } catch (e: any) {
 
       setDetalleError(e.message);
 
@@ -184,21 +225,21 @@ export function UnidadesSection() {
 
   // CREAR
 
-  const handleCreate = async()=>{
+  const handleCreate = async () => {
 
     setCreateLoading(true);
     setCreateError(null);
 
-    try{
+    try {
 
       await crearVehiculo(createForm);
 
-      showToast("Vehículo creado","ok");
+      showToast("Vehículo creado", "ok");
 
       setShowCreate(false);
-      handleSearch();
+      fetchVehiculos(0);
 
-    }catch(e:any){
+    } catch (e: any) {
 
       setCreateError(e.message);
 
@@ -210,23 +251,23 @@ export function UnidadesSection() {
 
   // EDITAR
 
-  const handleEdit = async()=>{
+  const handleEdit = async () => {
 
-    if(!editTarget) return;
+    if (!editTarget) return;
 
     setEditLoading(true);
     setEditError(null);
 
-    try{
+    try {
 
-      await actualizarVehiculo(editTarget.num_serie,editForm);
+      await actualizarVehiculo(editTarget.num_serie, editForm);
 
-      showToast("Vehículo actualizado","ok");
+      showToast("Vehículo actualizado", "ok");
 
       setEditTarget(null);
-      handleSearch();
+      fetchVehiculos(offset);
 
-    }catch(e:any){
+    } catch (e: any) {
 
       setEditError(e.message);
 
@@ -238,23 +279,23 @@ export function UnidadesSection() {
 
   // ELIMINAR
 
-  const handleDelete = async()=>{
+  const handleDelete = async () => {
 
-    if(!deleteTarget) return;
+    if (!deleteTarget) return;
 
     setDeleteLoading(true);
     setDeleteError(null);
 
-    try{
+    try {
 
       await eliminarVehiculo(deleteTarget.num_serie);
 
-      showToast("Vehículo eliminado","ok");
+      showToast("Vehículo eliminado", "ok");
 
       setDeleteTarget(null);
-      handleSearch();
+      fetchVehiculos(offset);
 
-    }catch(e:any){
+    } catch (e: any) {
 
       setDeleteError(e.message);
 
@@ -264,86 +305,103 @@ export function UnidadesSection() {
 
   };
 
-  return(
+  return (
 
     <>
 
-      <Toast toast={toast}/>
+      <Toast toast={toast} />
 
       <SearchBar
         query={query}
         setQuery={setQuery}
-        onSearch={handleSearch}
-        filtrosActivos={Object.values(filtros).filter(v=>v).length}
-        onToggleFilters={()=>setShowFilters(!showFilters)}
-        onNuevo={()=>setShowCreate(true)}
+        onSearch={() => fetchVehiculos(0)}
+        filtrosActivos={Object.values(filtros).filter(v => v).length}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        onNuevo={() => setShowCreate(true)}
       />
 
       {showFilters && (
 
         <FiltrosVehiculos
-          filtros={filtros}
+          filtros={{ ...filtros }}
           setFiltros={setFiltros}
           tipos={tipos}
+           marcas={marcas}
         />
 
       )}
 
-      {!hasSearched
-        ? <EmptyState/>
-        : <VehiculosTable
-            vehiculos={vehiculos}
-            loading={loading}
-            onVer={handleVer}
-            onEdit={(v:any)=>{
+      <VehiculosTable
+        vehiculos={vehiculos}
+        loading={loading}
+        onVer={handleVer}
+        onEdit={(v: any) => {
 
-              setEditTarget(v);
+          setEditTarget(v);
 
-              setEditForm({
-                matricula:v.matricula,
-                estatus:v.estatus,
-                id_tipo:v.id_tipo
-              });
+          setEditForm({
+            matricula: v.matricula,
+            estatus: v.estatus,
+            id_tipo: v.id_tipo
+          });
 
-            }}
-            onDelete={(v:any)=>setDeleteTarget(v)}
-          />
-      }
+        }}
+        onDelete={(v: any) => setDeleteTarget(v)}
+      />
 
-      {hasSearched && !loading && vehiculos.length >= limit && (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "20px",
+          marginTop: "20px"
+        }}
+      >
 
-        <div style={{textAlign:"center",marginTop:"20px"}}>
+        <button
+          disabled={offset === 0}
+          onClick={handlePrev}
+          style={{
+            padding: "10px 18px",
+            borderRadius: "8px",
+            border: "none",
+            background: offset === 0 ? "#ccc" : "#6c63ff",
+            color: "white",
+            cursor: "pointer"
+          }}
+        >
+          Anterior
+        </button>
 
-          <button
-            onClick={()=>fetchVehiculos(false)}
-            style={{
-              padding:"10px 18px",
-              borderRadius:"8px",
-              background:"#6c63ff",
-              color:"white",
-              border:"none",
-              cursor:"pointer"
-            }}
-          >
-            Mostrar siguientes
-          </button>
+        <button
+          disabled={vehiculos.length < limit}
+          onClick={handleNext}
+          style={{
+            padding: "10px 18px",
+            borderRadius: "8px",
+            border: "none",
+            background: vehiculos.length < limit ? "#ccc" : "#6c63ff",
+            color: "white",
+            cursor: "pointer"
+          }}
+        >
+          Siguiente
+        </button>
 
-        </div>
-
-      )}
+      </div>
 
       <ModalDetalle
         detalle={detalle}
         loading={detalleLoading}
         error={detalleError}
-        onClose={()=>setDetalle(null)}
+        onClose={() => setDetalle(null)}
       />
 
       <ModalEliminar
         target={deleteTarget}
         loading={deleteLoading}
         error={deleteError}
-        onClose={()=>setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />
 
@@ -354,7 +412,7 @@ export function UnidadesSection() {
         tipos={tipos}
         loading={createLoading}
         error={createError}
-        onClose={()=>setShowCreate(false)}
+        onClose={() => setShowCreate(false)}
         onSave={handleCreate}
       />
 
@@ -365,7 +423,7 @@ export function UnidadesSection() {
         tipos={tipos}
         loading={editLoading}
         error={editError}
-        onClose={()=>setEditTarget(null)}
+        onClose={() => setEditTarget(null)}
         onSave={handleEdit}
       />
 

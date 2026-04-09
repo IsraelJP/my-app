@@ -24,7 +24,7 @@ export default function SearchBar({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Número de serie o tipo de vehículo…"
+            placeholder="Número de serie, tipo de vehículo, matricula…"
             className={`mt-1 w-full ${THEME.input}`}
           />
         </div>
