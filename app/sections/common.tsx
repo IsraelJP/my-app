@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { THEME } from "../theme";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
@@ -68,9 +69,9 @@ export function formatDateTime(value?: string | null) {
 
 export function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20">
+    <div className={`rounded-2xl ${THEME.surface} p-4 shadow-sm`}>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/90">{title}</h3>
+        <h3 className={`text-sm font-semibold ${THEME.heading}`}>{title}</h3>
       </div>
       {children}
     </div>
@@ -87,10 +88,10 @@ export function KpiCard({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-      <p className="text-xs text-white/60">{label}</p>
-      <div className="mt-2 text-2xl font-bold">
-        {loading ? <div className="h-7 w-16 animate-pulse rounded-lg bg-white/10" /> : value ?? 0}
+    <div className={THEME.kpiCard}>
+      <p className={THEME.kpiLabel}>{label}</p>
+      <div className={THEME.kpiValue}>
+        {loading ? <div className={THEME.kpiSkeleton} /> : value ?? 0}
       </div>
     </div>
   );

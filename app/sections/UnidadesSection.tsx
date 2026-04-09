@@ -1,38 +1,96 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { THEME } from "../theme";
 import { API_BASE, formatDateTime, Tipo, Vehiculo, VehiculoDetalle } from "./common";
 
+function estatusBadge(estatus: string) {
+  if (estatus === "ACTIVO")        return THEME.badgeActivo;
+  if (estatus === "MANTENIMIENTO") return THEME.badgeMantenimiento;
+  return THEME.badgeInactivo;
+}
+
+function EmptyState() {
+  return (
+    <div className={`rounded-2xl ${THEME.surface} p-12 shadow-sm flex flex-col items-center gap-4 text-center`}>
+      <div className={`grid h-16 w-16 place-items-center rounded-2xl ${THEME.logo} text-3xl`}>
+        🚌
+      </div>
+      <div>
+        <p className={`text-base font-semibold ${THEME.heading}`}>Busca un vehículo para comenzar</p>
+        <p className={`mt-1 text-sm ${THEME.body}`}>
+          Ingresa un número de serie, matrícula o tipo en el campo de búsqueda.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function UnidadesSection() {
+  // Búsqueda
+  const [query, setQuery]             = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filtros
+  const [filtroTipo, setFiltroTipo]     = useState("");
+  const [filtroEstatus, setFiltroEstatus] = useState("");
+  // TODO: agregar filtro de marca cuando se añada al esquema de BD
+
+  // Datos
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [estatus, setEstatus] = useState("Todos");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [tipos, setTipos]         = useState<Tipo[]>([]);
 
-  const [detalle, setDetalle] = useState<VehiculoDetalle | null>(null);
+  // Modal: Ver detalle
+  const [detalle, setDetalle]               = useState<VehiculoDetalle | null>(null);
   const [detalleLoading, setDetalleLoading] = useState(false);
-  const [detalleError, setDetalleError] = useState<string | null>(null);
+  const [detalleError, setDetalleError]     = useState<string | null>(null);
 
-  const [editTarget, setEditTarget] = useState<Vehiculo | null>(null);
-  const [editForm, setEditForm] = useState({ matricula: "", estatus: "", id_tipo: "" });
-  const [editInitial, setEditInitial] = useState({ matricula: "", estatus: "", id_tipo: "" });
+  // Modal: Editar
+  const [editTarget, setEditTarget]                 = useState<Vehiculo | null>(null);
+  const [editForm, setEditForm]                     = useState({ matricula: "", estatus: "", id_tipo: "" });
+  const [editInitial, setEditInitial]               = useState({ matricula: "", estatus: "", id_tipo: "" });
   const [editHydrateLoading, setEditHydrateLoading] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [tipos, setTipos] = useState<Tipo[]>([]);
+  const [editLoading, setEditLoading]               = useState(false);
+  const [editError, setEditError]                   = useState<string | null>(null);
 
-  const [deleteTarget, setDeleteTarget] = useState<Vehiculo | null>(null);
+  // Modal: Eliminar
+  const [deleteTarget, setDeleteTarget]   = useState<Vehiculo | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError]     = useState<string | null>(null);
 
+  // Modal: Nuevo vehículo
+  const [showCreate, setShowCreate]       = useState(false);
+  const [createForm, setCreateForm]       = useState({ num_serie: "", matricula: "", id_tipo: "", estatus: "ACTIVO" });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError]     = useState<string | null>(null);
+
+  // Toast
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
   const showToast = (msg: string, type: "ok" | "err") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchVehiculos = async () => {
+  useEffect(() => {
+    fetch(`${API_BASE}/tipos`).then((r) => r.json()).then(setTipos).catch(() => {});
+  }, []);
+
+  // Tipos únicos derivados de los vehículos cargados (para el selector de filtro)
+  const tiposEnResultados = useMemo(() => {
+    const set = new Set<string>();
+    vehiculos.forEach((v) => { if (v.descripcion) set.add(v.descripcion); });
+    return Array.from(set).sort();
+  }, [vehiculos]);
+
+  // Conteo de filtros activos (para el badge del botón)
+  const filtrosActivos = [filtroTipo, filtroEstatus].filter(Boolean).length;
+  // TODO: incluir filtro de marca en el conteo cuando se implemente
+
+  const handleSearch = async () => {
+    setHasSearched(true);
     setLoading(true);
     setError(null);
     try {
@@ -46,27 +104,31 @@ export function UnidadesSection() {
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchVehiculos().catch(() => {});
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
 
-  useEffect(() => {
-    fetch(`${API_BASE}/tipos`).then((r) => r.json()).then(setTipos).catch(() => {});
-  }, []);
+  const limpiarFiltros = () => {
+    setFiltroTipo("");
+    setFiltroEstatus("");
+    // TODO: limpiar filtro de marca cuando se implemente
+  };
 
   const vehiculosFiltrados = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return vehiculos.filter((v) => {
-      const matchSearch =
-        search.trim() === "" ||
-        v.num_serie.toLowerCase().includes(search.toLowerCase()) ||
-        (v.descripcion ?? v.tipo ?? "").toLowerCase().includes(search.toLowerCase());
-      const matchEstatus = estatus === "Todos" || v.estatus === estatus;
-      return matchSearch && matchEstatus;
+      const matchQuery =
+        q === "" ||
+        v.num_serie.toLowerCase().includes(q) ||
+        (v.descripcion ?? v.tipo ?? "").toLowerCase().includes(q);
+      const matchTipo   = !filtroTipo   || (v.descripcion ?? v.tipo ?? "") === filtroTipo;
+      const matchEstatus = !filtroEstatus || v.estatus === filtroEstatus;
+      // TODO: agregar matchMarca cuando el campo esté disponible en la BD
+      return matchQuery && matchTipo && matchEstatus;
     });
-  }, [vehiculos, search, estatus]);
+  }, [vehiculos, query, filtroTipo, filtroEstatus]);
+
+  // ── Handlers CRUD ──────────────────────────────────────────────────────────
 
   const handleVer = async (num_serie: string) => {
     setDetalle(null);
@@ -74,7 +136,7 @@ export function UnidadesSection() {
     setDetalleLoading(true);
     try {
       const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(num_serie)}`);
-      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       setDetalle(Array.isArray(data) ? data[0] : data);
     } catch (err) {
@@ -90,19 +152,14 @@ export function UnidadesSection() {
     setEditHydrateLoading(true);
     try {
       const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(v.num_serie)}`);
-      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
-      const detalleData = (Array.isArray(data) ? data[0] : data) as VehiculoDetalle;
-      const tipoId = detalleData?.id_tipo ? String(detalleData.id_tipo) : "";
-      const nextForm = {
-        matricula: detalleData?.matricula ?? "",
-        estatus: detalleData?.estatus ?? v.estatus,
-        id_tipo: tipoId,
-      };
-      setEditForm(nextForm);
-      setEditInitial(nextForm);
+      const d = (Array.isArray(data) ? data[0] : data) as VehiculoDetalle;
+      const next = { matricula: d?.matricula ?? "", estatus: d?.estatus ?? v.estatus, id_tipo: d?.id_tipo ? String(d.id_tipo) : "" };
+      setEditForm(next);
+      setEditInitial(next);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Error al cargar valores actuales");
+      setEditError(err instanceof Error ? err.message : "Error al cargar datos");
       setEditForm({ matricula: "", estatus: v.estatus, id_tipo: "" });
       setEditInitial({ matricula: "", estatus: v.estatus, id_tipo: "" });
     } finally {
@@ -133,9 +190,9 @@ export function UnidadesSection() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.detail ?? `Error ${res.status}`);
       }
-      showToast("Vehículo actualizado correctamente.", "ok");
+      showToast("Vehículo actualizado.", "ok");
       setEditTarget(null);
-      fetchVehiculos();
+      handleSearch();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Error al actualizar");
     } finally {
@@ -148,20 +205,52 @@ export function UnidadesSection() {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(deleteTarget.num_serie)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`${API_BASE}/vehiculos/${encodeURIComponent(deleteTarget.num_serie)}`, { method: "DELETE" });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.detail ?? `Error ${res.status}`);
       }
       showToast(`Vehículo ${deleteTarget.num_serie} eliminado.`, "ok");
       setDeleteTarget(null);
-      fetchVehiculos();
+      handleSearch();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Error al eliminar");
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleCreateSave = async () => {
+    setCreateLoading(true);
+    setCreateError(null);
+    if (!createForm.num_serie.trim() || !createForm.matricula.trim() || !createForm.id_tipo) {
+      setCreateError("Todos los campos son obligatorios.");
+      setCreateLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/vehiculos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          num_serie: createForm.num_serie.trim(),
+          matricula: createForm.matricula.trim(),
+          id_tipo:   Number(createForm.id_tipo),
+          estatus:   createForm.estatus,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.detail ?? `Error ${res.status}`);
+      }
+      showToast("Vehículo creado correctamente.", "ok");
+      setShowCreate(false);
+      setCreateForm({ num_serie: "", matricula: "", id_tipo: "", estatus: "ACTIVO" });
+      handleSearch();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Error al crear");
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -176,216 +265,199 @@ export function UnidadesSection() {
     window.URL.revokeObjectURL(url);
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Toast */}
       {toast && (
-        <div
-          className={[
-            "fixed bottom-5 right-5 z-[100] rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl ring-1",
-            toast.type === "ok"
-              ? "bg-emerald-500/20 text-emerald-200 ring-emerald-400/30"
-              : "bg-rose-500/20 text-rose-200 ring-rose-400/30",
-          ].join(" ")}
-        >
+        <div className={`fixed bottom-5 right-5 z-[100] ${toast.type === "ok" ? THEME.toastOk : THEME.toastErr}`}>
           {toast.msg}
         </div>
       )}
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <label className="text-xs text-white/60">Buscar</label>
+      {/* Barra de búsqueda */}
+      <section className={`rounded-2xl ${THEME.surface} p-4 shadow-sm`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className={THEME.label}>Buscar vehículo</label>
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Número de serie o tipo..."
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-white/35 focus:ring-2 focus:ring-indigo-400/30"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Número de serie o tipo de vehículo…"
+              className={`mt-1 w-full ${THEME.input}`}
             />
           </div>
-          <div>
-            <label className="text-xs text-white/60">Estatus</label>
-            <select
-              value={estatus}
-              onChange={(e) => setEstatus(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30"
-            >
-              <option>Todos</option>
-              <option>ACTIVO</option>
-              <option>INACTIVO</option>
-              <option>MANTENIMIENTO</option>
-            </select>
-          </div>
+          <button onClick={handleSearch} className={THEME.btnPrimary}>Buscar</button>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={[
+              THEME.btnSecondary,
+              showFilters ? "ring-indigo-300 text-indigo-600" : "",
+            ].join(" ")}
+          >
+            Filtros
+            {filtrosActivos > 0 && (
+              <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white">
+                {filtrosActivos}
+              </span>
+            )}
+          </button>
+          <button onClick={() => { setShowCreate(true); setCreateError(null); }} className={THEME.btnSecondary}>
+            + Nuevo
+          </button>
         </div>
 
-        {error && (
-          <div className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-300">
-            {error}
+        {/* Panel de filtros */}
+        {showFilters && (
+          <div className={`mt-4 rounded-xl ${THEME.inset} p-4`}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {/* TODO: agregar filtro de Marca cuando se añada el campo a la tabla VEHICULOS */}
+
+              <div>
+                <label className={THEME.label}>Tipo de vehículo</label>
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                  className={`mt-1 w-full ${THEME.select}`}
+                >
+                  <option value="">Todos los tipos</option>
+                  {tiposEnResultados.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={THEME.label}>Estatus</label>
+                <select
+                  value={filtroEstatus}
+                  onChange={(e) => setFiltroEstatus(e.target.value)}
+                  className={`mt-1 w-full ${THEME.select}`}
+                >
+                  <option value="">Todos</option>
+                  <option value="ACTIVO">ACTIVO</option>
+                  <option value="INACTIVO">INACTIVO</option>
+                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                </select>
+              </div>
+            </div>
+
+            {filtrosActivos > 0 && (
+              <button onClick={limpiarFiltros} className={`mt-3 text-xs ${THEME.body} underline underline-offset-2`}>
+                Limpiar filtros
+              </button>
+            )}
           </div>
         )}
-
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-          <table className="w-full border-collapse bg-black/20 text-left text-sm">
-            <thead className="bg-white/5 text-xs uppercase tracking-wide text-white/60">
-              <tr>
-                <th className="px-4 py-3 w-48">Número de serie</th>
-                <th className="px-4 py-3 w-52">Tipo</th>
-                <th className="px-4 py-3 w-36">Estatus</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-white/60 animate-pulse">
-                    Cargando vehículos…
-                  </td>
-                </tr>
-              ) : vehiculosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-white/60">
-                    No se encontraron vehículos.
-                  </td>
-                </tr>
-              ) : (
-                vehiculosFiltrados.map((v) => (
-                  <tr key={v.num_serie} className="border-t border-white/10 hover:bg-white/[0.03] transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-white/80">{v.num_serie}</td>
-                    <td className="px-4 py-3 text-white/80">{v.descripcion ?? v.tipo ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={[
-                          "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset",
-                          v.estatus === "ACTIVO"
-                            ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30"
-                            : v.estatus === "MANTENIMIENTO"
-                              ? "bg-amber-500/10 text-amber-300 ring-amber-400/30"
-                              : "bg-rose-500/10 text-rose-300 ring-rose-400/30",
-                        ].join(" ")}
-                      >
-                        {v.estatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-2">
-                        <button
-                          onClick={() => handleVer(v.num_serie)}
-                          className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/10 hover:bg-white/10 transition-colors"
-                        >
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => handleEditOpen(v)}
-                          className="rounded-lg bg-indigo-500/20 px-3 py-1.5 text-xs font-semibold ring-1 ring-indigo-400/30 hover:bg-indigo-500/30 transition-colors"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => {
-                            setDeleteTarget(v);
-                            setDeleteError(null);
-                          }}
-                          className="rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-semibold ring-1 ring-rose-400/30 hover:bg-rose-500/25 transition-colors"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-2 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
-          <span>{!loading && vehiculos.length > 0 ? `${vehiculosFiltrados.length} de ${vehiculos.length} vehículo(s).` : ""}</span>
-          <div className="flex items-center gap-3">
-            <span>
-              Endpoints: <code className="text-white/70">POST</code>, <code className="text-white/70">PATCH</code>,{" "}
-              <code className="text-white/70">DELETE</code>.
-            </span>
-            <button
-              onClick={handleExport}
-              className="rounded-lg bg-emerald-500/20 px-3 py-1.5 font-semibold ring-1 ring-emerald-400/30 hover:bg-emerald-500/30"
-            >
-              Exportar CSV
-            </button>
-          </div>
-        </div>
       </section>
 
+      {/* Estado vacío / resultados */}
+      {!hasSearched ? (
+        <EmptyState />
+      ) : (
+        <section className={`rounded-2xl ${THEME.surface} p-4 shadow-sm`}>
+          {error && <div className={`mb-4 ${THEME.errorBox}`}>{error}</div>}
+
+          <div className={THEME.tableWrapper}>
+            <table className={THEME.table}>
+              <thead className={THEME.thead}>
+                <tr>
+                  <th className={`${THEME.th} w-48`}>Número de serie</th>
+                  <th className={`${THEME.th} w-52`}>Tipo</th>
+                  <th className={`${THEME.th} w-36`}>Estatus</th>
+                  <th className={`${THEME.th} text-right`}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={4} className={`px-4 py-6 text-center text-sm ${THEME.muted} animate-pulse`}>
+                      Buscando vehículos…
+                    </td>
+                  </tr>
+                ) : vehiculosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
+                      No se encontraron vehículos con esos criterios.
+                    </td>
+                  </tr>
+                ) : (
+                  vehiculosFiltrados.map((v) => (
+                    <tr key={v.num_serie} className={THEME.trow}>
+                      <td className={THEME.tcellMono}>{v.num_serie}</td>
+                      <td className={THEME.tcell}>{v.descripcion ?? v.tipo ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(v.estatus)}`}>
+                          {v.estatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex gap-2">
+                          <button onClick={() => handleVer(v.num_serie)}                              className={THEME.btnGhost}>Ver</button>
+                          <button onClick={() => handleEditOpen(v)}                                   className={THEME.btnEdit}>Editar</button>
+                          <button onClick={() => { setDeleteTarget(v); setDeleteError(null); }}       className={THEME.btnDelete}>Eliminar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {!loading && vehiculos.length > 0 && (
+            <div className={`mt-4 flex items-center justify-between text-xs ${THEME.muted}`}>
+              <span>{vehiculosFiltrados.length} de {vehiculos.length} vehículo(s)</span>
+              <button onClick={handleExport} className={THEME.btnSuccess}>Exportar CSV</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Modal: Ver detalle ─────────────────────────────────────────────── */}
       {(detalle || detalleLoading || detalleError) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setDetalle(null);
-              setDetalleError(null);
-            }
-          }}
+          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
+          onClick={(e) => { if (e.target === e.currentTarget) { setDetalle(null); setDetalleError(null); } }}
         >
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 shadow-2xl p-6">
+          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h2 className="text-lg font-bold">Detalle del vehículo</h2>
-                {detalle && <p className="mt-0.5 font-mono text-xs text-white/50">{detalle.num_serie}</p>}
+                <h2 className={`text-lg font-bold ${THEME.heading}`}>Detalle del vehículo</h2>
+                {detalle && <p className={`mt-0.5 ${THEME.mono}`}>{detalle.num_serie}</p>}
               </div>
-              <button
-                onClick={() => {
-                  setDetalle(null);
-                  setDetalleError(null);
-                }}
-                className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/10 hover:bg-white/10"
-              >
-                Cerrar ✕
-              </button>
+              <button onClick={() => { setDetalle(null); setDetalleError(null); }} className={THEME.btnGhost}>Cerrar ✕</button>
             </div>
             {detalleLoading && (
               <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-10 animate-pulse rounded-xl bg-white/5" />
-                ))}
+                {[...Array(4)].map((_, i) => <div key={i} className={THEME.skeleton} />)}
               </div>
             )}
-            {detalleError && (
-              <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-                {detalleError}
-              </div>
-            )}
+            {detalleError && <div className={THEME.errorBox}>{detalleError}</div>}
             {detalle && !detalleLoading && (
               <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[
-                  { label: "ID Vehículo", value: detalle.id_vehiculo },
-                  { label: "Número de serie", value: detalle.num_serie },
-                  { label: "Matrícula", value: detalle.matricula },
-                  { label: "Tipo", value: detalle.descripcion },
-                  { label: "Estatus", value: detalle.estatus, badge: true },
-                  { label: "En mantenimiento", value: detalle.en_mantenimiento },
-                  { label: "Tipo mantenimiento", value: detalle.tipo_mantenimiento ?? "—" },
-                  { label: "Ingreso a taller", value: formatDateTime(detalle.fecha_ingreso_taller) },
-                  { label: "Inicio mantenimiento", value: formatDateTime(detalle.fecha_inicio_mantenimiento) },
+                  { label: "ID",                    value: detalle.id_vehiculo },
+                  { label: "Número de serie",       value: detalle.num_serie },
+                  { label: "Matrícula",             value: detalle.matricula },
+                  { label: "Tipo",                  value: detalle.descripcion },
+                  { label: "Estatus",               value: detalle.estatus, badge: true },
+                  { label: "En mantenimiento",      value: detalle.en_mantenimiento },
+                  { label: "Tipo mantenimiento",    value: detalle.tipo_mantenimiento ?? "—" },
+                  { label: "Ingreso a taller",      value: formatDateTime(detalle.fecha_ingreso_taller) },
+                  { label: "Inicio mantenimiento",  value: formatDateTime(detalle.fecha_inicio_mantenimiento) },
                   { label: "Término mantenimiento", value: formatDateTime(detalle.fecha_termino_mantenimiento) },
-                  { label: "Egreso de taller", value: formatDateTime(detalle.fecha_egreso_taller) },
+                  { label: "Egreso de taller",      value: formatDateTime(detalle.fecha_egreso_taller) },
                 ].map(({ label, value, badge }) => (
-                  <div key={label} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                    <dt className="text-xs text-white/50">{label}</dt>
-                    <dd className="mt-0.5 text-sm font-medium text-white/90">
+                  <div key={label} className={`rounded-xl ${THEME.inset} px-3 py-2`}>
+                    <dt className={THEME.label}>{label}</dt>
+                    <dd className={`mt-0.5 text-sm font-medium ${THEME.heading}`}>
                       {badge ? (
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset",
-                            value === "ACTIVO"
-                              ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30"
-                              : value === "MANTENIMIENTO"
-                                ? "bg-amber-500/10 text-amber-300 ring-amber-400/30"
-                                : "bg-rose-500/10 text-rose-300 ring-rose-400/30",
-                          ].join(" ")}
-                        >
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(String(value))}`}>
                           {value}
                         </span>
-                      ) : (
-                        String(value ?? "—")
-                      )}
+                      ) : String(value ?? "—")}
                     </dd>
                   </div>
                 ))}
@@ -395,84 +467,48 @@ export function UnidadesSection() {
         </div>
       )}
 
+      {/* ── Modal: Editar ─────────────────────────────────────────────────── */}
       {editTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setEditTarget(null);
-          }}
+          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
+          onClick={(e) => { if (e.target === e.currentTarget) setEditTarget(null); }}
         >
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 shadow-2xl p-6">
+          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h2 className="text-lg font-bold">Editar vehículo</h2>
-                <p className="mt-0.5 font-mono text-xs text-white/50">{editTarget.num_serie}</p>
+                <h2 className={`text-lg font-bold ${THEME.heading}`}>Editar vehículo</h2>
+                <p className={`mt-0.5 ${THEME.mono}`}>{editTarget.num_serie}</p>
               </div>
-              <button
-                onClick={() => setEditTarget(null)}
-                className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/10 hover:bg-white/10"
-              >
-                Cerrar ✕
-              </button>
+              <button onClick={() => setEditTarget(null)} className={THEME.btnGhost}>Cerrar ✕</button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-white/60">Matrícula</label>
-                <input
-                  value={editForm.matricula}
-                  onChange={(e) => setEditForm((f) => ({ ...f, matricula: e.target.value }))}
-                  placeholder="Ej. ABC1234"
-                  disabled={editHydrateLoading}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-white/30 focus:ring-2 focus:ring-indigo-400/30"
-                />
+                <label className={THEME.label}>Matrícula</label>
+                <input value={editForm.matricula} onChange={(e) => setEditForm((f) => ({ ...f, matricula: e.target.value }))}
+                  placeholder="Ej. ABC1234" disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.input}`} />
               </div>
               <div>
-                <label className="text-xs text-white/60">Estatus</label>
-                <select
-                  value={editForm.estatus}
-                  onChange={(e) => setEditForm((f) => ({ ...f, estatus: e.target.value }))}
-                  disabled={editHydrateLoading}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30"
-                >
+                <label className={THEME.label}>Estatus</label>
+                <select value={editForm.estatus} onChange={(e) => setEditForm((f) => ({ ...f, estatus: e.target.value }))}
+                  disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.select}`}>
                   <option value="ACTIVO">ACTIVO</option>
                   <option value="INACTIVO">INACTIVO</option>
                   <option value="MANTENIMIENTO">MANTENIMIENTO</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-white/60">Tipo de vehículo</label>
-                <select
-                  value={editForm.id_tipo}
-                  onChange={(e) => setEditForm((f) => ({ ...f, id_tipo: e.target.value }))}
-                  disabled={editHydrateLoading}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30"
-                >
+                <label className={THEME.label}>Tipo de vehículo</label>
+                <select value={editForm.id_tipo} onChange={(e) => setEditForm((f) => ({ ...f, id_tipo: e.target.value }))}
+                  disabled={editHydrateLoading} className={`mt-1 w-full ${THEME.select}`}>
                   <option value="">— Selecciona tipo —</option>
-                  {tipos.map((t) => (
-                    <option key={t.id_tipo} value={t.id_tipo}>
-                      {t.descripcion}
-                    </option>
-                  ))}
+                  {tipos.map((t) => <option key={t.id_tipo} value={t.id_tipo}>{t.descripcion}</option>)}
                 </select>
               </div>
-              {editHydrateLoading && <p className="text-xs text-white/55">Cargando matrícula y tipo actuales...</p>}
-              {editError && (
-                <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-300">
-                  {editError}
-                </div>
-              )}
+              {editHydrateLoading && <p className={`text-xs ${THEME.muted}`}>Cargando datos actuales...</p>}
+              {editError && <div className={THEME.errorBox}>{editError}</div>}
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setEditTarget(null)}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-white/10 hover:bg-white/10"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleEditSave}
-                  disabled={editLoading || editHydrateLoading}
-                  className="rounded-xl bg-indigo-500/30 px-4 py-2 text-sm font-semibold ring-1 ring-indigo-400/30 hover:bg-indigo-500/40 disabled:opacity-50"
-                >
+                <button onClick={() => setEditTarget(null)} className={THEME.btnSecondary}>Cancelar</button>
+                <button onClick={handleEditSave} disabled={editLoading || editHydrateLoading} className={THEME.btnPrimary}>
                   {editLoading ? "Guardando…" : "Guardar cambios"}
                 </button>
               </div>
@@ -481,36 +517,74 @@ export function UnidadesSection() {
         </div>
       )}
 
+      {/* ── Modal: Eliminar ───────────────────────────────────────────────── */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDeleteTarget(null);
-          }}
+          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
+          onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
         >
-          <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 shadow-2xl p-6">
-            <h2 className="text-lg font-bold">¿Eliminar vehículo?</h2>
-            <p className="mt-2 text-sm text-white/60">Esta acción no se puede deshacer. Se eliminará el vehículo:</p>
-            <p className="mt-2 font-mono text-sm text-rose-300">{deleteTarget.num_serie}</p>
-            {deleteError && (
-              <div className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-300">
-                {deleteError}
-              </div>
-            )}
+          <div className={`relative w-full max-w-sm rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
+            <h2 className={`text-lg font-bold ${THEME.heading}`}>¿Eliminar vehículo?</h2>
+            <p className={`mt-2 text-sm ${THEME.body}`}>Esta acción no se puede deshacer. Se eliminará:</p>
+            <p className="mt-2 font-mono text-sm font-semibold text-rose-600">{deleteTarget.num_serie}</p>
+            {deleteError && <div className={`mt-3 ${THEME.errorBox}`}>{deleteError}</div>}
             <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-white/10 hover:bg-white/10"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteLoading}
-                className="rounded-xl bg-rose-500/30 px-4 py-2 text-sm font-semibold ring-1 ring-rose-400/30 hover:bg-rose-500/40 disabled:opacity-50"
-              >
+              <button onClick={() => setDeleteTarget(null)} className={THEME.btnSecondary}>Cancelar</button>
+              <button onClick={handleDeleteConfirm} disabled={deleteLoading} className={THEME.btnDanger}>
                 {deleteLoading ? "Eliminando…" : "Sí, eliminar"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Nuevo vehículo ─────────────────────────────────────────── */}
+      {showCreate && (
+        <div
+          className={`fixed inset-0 z-50 flex items-center justify-center ${THEME.overlay} px-4`}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}
+        >
+          <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <h2 className={`text-lg font-bold ${THEME.heading}`}>Nuevo vehículo</h2>
+              <button onClick={() => setShowCreate(false)} className={THEME.btnGhost}>Cerrar ✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className={THEME.label}>Número de serie <span className="text-rose-500">*</span></label>
+                <input value={createForm.num_serie} onChange={(e) => setCreateForm((f) => ({ ...f, num_serie: e.target.value }))}
+                  placeholder="Ej. 1HGCM82633A123456" className={`mt-1 w-full ${THEME.input}`} />
+              </div>
+              <div>
+                <label className={THEME.label}>Matrícula <span className="text-rose-500">*</span></label>
+                <input value={createForm.matricula} onChange={(e) => setCreateForm((f) => ({ ...f, matricula: e.target.value }))}
+                  placeholder="Ej. ABC1234" className={`mt-1 w-full ${THEME.input}`} />
+              </div>
+              {/* TODO: agregar campo de Marca cuando se añada a la tabla VEHICULOS */}
+              <div>
+                <label className={THEME.label}>Tipo de vehículo <span className="text-rose-500">*</span></label>
+                <select value={createForm.id_tipo} onChange={(e) => setCreateForm((f) => ({ ...f, id_tipo: e.target.value }))}
+                  className={`mt-1 w-full ${THEME.select}`}>
+                  <option value="">— Selecciona tipo —</option>
+                  {tipos.map((t) => <option key={t.id_tipo} value={t.id_tipo}>{t.descripcion}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={THEME.label}>Estatus inicial</label>
+                <select value={createForm.estatus} onChange={(e) => setCreateForm((f) => ({ ...f, estatus: e.target.value }))}
+                  className={`mt-1 w-full ${THEME.select}`}>
+                  <option value="ACTIVO">ACTIVO</option>
+                  <option value="INACTIVO">INACTIVO</option>
+                  <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                </select>
+              </div>
+              {createError && <div className={THEME.errorBox}>{createError}</div>}
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setShowCreate(false)} className={THEME.btnSecondary}>Cancelar</button>
+                <button onClick={handleCreateSave} disabled={createLoading} className={THEME.btnPrimary}>
+                  {createLoading ? "Creando…" : "Crear vehículo"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
