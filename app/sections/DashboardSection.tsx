@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { CHART_COLORS, THEME } from "../theme";
 import { API_BASE, Card, KpiCard } from "./common";
 
 export function DashboardSection() {
@@ -12,7 +13,6 @@ export function DashboardSection() {
     mantenimientos: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const COLORS = ["#2DD4BF", "#FB7185", "#FBBF24"];
 
   const chartData = stats
     ? [
@@ -41,9 +41,9 @@ export function DashboardSection() {
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="KPIs">
         <div className="grid grid-cols-2 gap-3">
-          <KpiCard label="Total" value={stats?.total} loading={loading} />
-          <KpiCard label="Activos" value={stats?.activos} loading={loading} />
-          <KpiCard label="Inactivos" value={stats?.inactivos} loading={loading} />
+          <KpiCard label="Total"         value={stats?.total}         loading={loading} />
+          <KpiCard label="Activos"       value={stats?.activos}       loading={loading} />
+          <KpiCard label="Inactivos"     value={stats?.inactivos}     loading={loading} />
           <KpiCard label="Mantenimiento" value={stats?.mantenimientos} loading={loading} />
         </div>
       </Card>
@@ -63,7 +63,7 @@ export function DashboardSection() {
                   label
                 >
                   {chartData.map((_, index) => (
-                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -71,7 +71,9 @@ export function DashboardSection() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-white/50">Cargando gráfica...</div>
+            <div className={`flex h-full items-center justify-center text-sm ${THEME.muted}`}>
+              Cargando gráfica...
+            </div>
           )}
         </div>
       </Card>
