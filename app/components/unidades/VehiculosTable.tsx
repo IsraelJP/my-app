@@ -14,7 +14,8 @@ export default function VehiculosTable({
   loading,
   onVer,
   onEdit,
-  onDelete
+  onDelete,
+  onMantenimiento
 }: any) {
 
   return (
@@ -107,6 +108,14 @@ export default function VehiculosTable({
                     >
                       Eliminar
                     </button>
+                    {v.estatus === "ACTIVO" && (
+                      <button
+                        onClick={() => onMantenimiento(v)}
+                        className={THEME.btnMantenimiento}
+                      >
+                        Iniciar Mantenimiento
+                      </button>
+                    )}
 
                   </div>
 

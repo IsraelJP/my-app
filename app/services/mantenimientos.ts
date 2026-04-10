@@ -40,3 +40,25 @@ export async function getHistorialMantenimientos(
 
   return res.json();
 }
+export async function crearMantenimiento(data: {
+  num_serie: string;
+  id_tipo_mantenimiento: number;
+  fecha_inicio_mantenimiento: string;
+}) {
+
+  const res = await fetch(`${API_BASE}/mantenimientos/insertar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(json.detail || "Error al crear mantenimiento");
+  }
+
+  return json;
+}

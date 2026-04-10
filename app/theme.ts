@@ -35,6 +35,7 @@ export const THEME = {
   btnEdit:      "bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200 hover:bg-indigo-100 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
   btnDelete:    "bg-rose-50 text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
   btnSuccess:   "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+  btnMantenimiento: "bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
 
   // ── Tabla ─────────────────────────────────────────────────
   tableWrapper: "overflow-hidden rounded-2xl border border-slate-200",

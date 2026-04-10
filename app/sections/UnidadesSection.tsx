@@ -22,7 +22,8 @@ import ModalEditar from "../components/unidades/ModalEditar";
 import ModalEliminar from "../components/unidades/ModalEliminar";
 import { getMarcas } from "../services/marcas";
 import ModalHistorialMantenimientos from "../components/unidades/ModalHistorialMantenimientos";
-
+import ModalCrearMantenimiento from "../components/unidades/ModalCrearMantenimiento";
+import { crearMantenimiento } from "../services/mantenimientos";
 import { API_BASE } from "./common";
 
 export function UnidadesSection() {
@@ -49,6 +50,21 @@ export function UnidadesSection() {
     orden: "desc"
   });
 
+//ESTADOS ModalCrearMantenimiento
+const [showMantenimiento, setShowMantenimiento] = useState(false);
+const [vehiculoMantenimiento, setVehiculoMantenimiento] = useState<any>(null);
+
+const [tiposMantenimiento, setTiposMantenimiento] = useState<any[]>([]);
+
+const [mantenimientoForm, setMantenimientoForm] = useState<any>({
+  num_serie: "",
+  id_tipo_mantenimiento: "",
+  fecha_inicio_mantenimiento: ""
+});
+
+const [mantenimientoLoading, setMantenimientoLoading] = useState(false);
+const [mantenimientoError, setMantenimientoError] = useState<any>(null);
+//------
   const showToast = (msg: string, type: "ok" | "err") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -317,6 +333,61 @@ export function UnidadesSection() {
 
   };
 
+   //MANTENIMIENTOS Insercion
+   useEffect(() => {
+  const fetchTiposMantenimiento = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/tipos-mantenimiento/`);
+          const data = await res.json();
+
+          setTiposMantenimiento(
+              Array.isArray(data) ? data : data?.tipos ?? []
+            );
+
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      fetchTiposMantenimiento();
+    }, []);
+
+
+   const handleCrearMantenimiento = async () => {
+
+  setMantenimientoError(null);
+
+  if (!mantenimientoForm.id_tipo_mantenimiento || !mantenimientoForm.fecha_inicio_mantenimiento) {
+    setMantenimientoError("Completa todos los campos");
+    return;
+  }
+
+  setMantenimientoLoading(true);
+
+  try {
+
+    await crearMantenimiento(mantenimientoForm);
+
+    showToast("Mantenimiento iniciado", "ok");
+
+    setShowMantenimiento(false);
+
+    setMantenimientoForm({
+      num_serie: "",
+      id_tipo_mantenimiento: "",
+      fecha_inicio_mantenimiento: ""
+    });
+
+    fetchVehiculos(offset);
+
+  } catch (e: any) {
+    setMantenimientoError(e.message);
+  }
+
+  setMantenimientoLoading(false);
+};
+//---
+
   return (
 
     <>
@@ -358,6 +429,17 @@ export function UnidadesSection() {
           });
         }}
         onDelete={(v: any) => setDeleteTarget(v)}
+        onMantenimiento={(v: any) => {
+    setVehiculoMantenimiento(v);
+
+    setMantenimientoForm({
+          num_serie: v.num_serie,
+          id_tipo_mantenimiento: "",
+          fecha_inicio_mantenimiento: ""
+        });
+
+        setShowMantenimiento(true);
+      }}
       />
 
       <div
@@ -452,6 +534,17 @@ export function UnidadesSection() {
         }}
         fetchHistorial={fetchHistorial}
       />
+
+      <ModalCrearMantenimiento
+      show={showMantenimiento}
+      form={mantenimientoForm}
+      setForm={setMantenimientoForm}
+      tiposMantenimiento={tiposMantenimiento}
+      loading={mantenimientoLoading}
+      error={mantenimientoError}
+      onClose={() => setShowMantenimiento(false)}
+      onSave={handleCrearMantenimiento}
+    />
 
     </>
 
