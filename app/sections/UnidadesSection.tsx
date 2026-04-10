@@ -326,25 +326,24 @@ export function UnidadesSection() {
           filtros={{ ...filtros }}
           setFiltros={setFiltros}
           tipos={tipos}
-           marcas={marcas}
+          marcas={marcas}
         />
 
       )}
 
       <VehiculosTable
         vehiculos={vehiculos}
+        marcas={marcas}
+        tipos={tipos}
         loading={loading}
         onVer={handleVer}
         onEdit={(v: any) => {
-
           setEditTarget(v);
-
           setEditForm({
             matricula: v.matricula,
             estatus: v.estatus,
             id_tipo: v.id_tipo
           });
-
         }}
         onDelete={(v: any) => setDeleteTarget(v)}
       />
