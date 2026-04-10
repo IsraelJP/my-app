@@ -14,12 +14,14 @@ import SearchBar from "../components/unidades/SearchBar";
 import VehiculosTable from "../components/unidades/VehiculosTable";
 import Toast from "../components/unidades/Toast";
 import FiltrosVehiculos from "../components/unidades/FiltrosVehiculos";
+import { getHistorialMantenimientos } from "../services/mantenimientos";
 
 import ModalDetalle from "../components/unidades/ModalDetalle";
 import ModalCrear from "../components/unidades/ModalCrear";
 import ModalEditar from "../components/unidades/ModalEditar";
 import ModalEliminar from "../components/unidades/ModalEliminar";
 import { getMarcas } from "../services/marcas";
+import ModalHistorialMantenimientos from "../components/unidades/ModalHistorialMantenimientos";
 
 import { API_BASE } from "./common";
 
@@ -29,8 +31,10 @@ export function UnidadesSection() {
   const [tipos, setTipos] = useState<any[]>([]);
   const [marcas, setMarcas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [vehiculoHistorial, setVehiculoHistorial] = useState<any>(null);
   const [query, setQuery] = useState("");
+
 
   const [toast, setToast] = useState<any>(null);
 
@@ -38,6 +42,7 @@ export function UnidadesSection() {
   const limit = 6;
 
   const [showFilters, setShowFilters] = useState(false);
+
 
   const [filtros, setFiltros] = useState({
     estatus: "",
@@ -49,7 +54,9 @@ export function UnidadesSection() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
-
+  const fetchHistorial = async (numSerie: string, filtros: any) => {
+    return await getHistorialMantenimientos(numSerie, filtros);
+  };
   // MODALS
 
   const [detalle, setDetalle] = useState<any>(null);
@@ -194,6 +201,11 @@ export function UnidadesSection() {
     fetchVehiculos(offset - limit);
   };
 
+
+  const handleVerHistorial = (vehiculo: any) => {
+    setVehiculoHistorial(vehiculo);
+    setShowHistorial(true);
+  };
   // VER DETALLE
 
   const handleVer = async (numSerie: string) => {
@@ -394,6 +406,7 @@ export function UnidadesSection() {
         loading={detalleLoading}
         error={detalleError}
         onClose={() => setDetalle(null)}
+        onViewHistory={handleVerHistorial}
       />
 
       <ModalEliminar
@@ -424,6 +437,15 @@ export function UnidadesSection() {
         error={editError}
         onClose={() => setEditTarget(null)}
         onSave={handleEdit}
+      />
+      <ModalHistorialMantenimientos
+        open={showHistorial}
+        vehiculo={vehiculoHistorial}
+        onClose={() => setShowHistorial(false)}
+        onChangeVehiculo={(v: any) => {
+          setVehiculoHistorial(v);
+        }}
+        fetchHistorial={fetchHistorial}
       />
 
     </>
