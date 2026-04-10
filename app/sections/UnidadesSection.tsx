@@ -35,7 +35,6 @@ export function UnidadesSection() {
   const [vehiculoHistorial, setVehiculoHistorial] = useState<any>(null);
   const [query, setQuery] = useState("");
 
-
   const [toast, setToast] = useState<any>(null);
 
   const [offset, setOffset] = useState(0);
@@ -43,20 +42,22 @@ export function UnidadesSection() {
 
   const [showFilters, setShowFilters] = useState(false);
 
-
   const [filtros, setFiltros] = useState({
     estatus: "",
     id_tipo: "",
     id_marca: "",
     orden: "desc"
   });
+
   const showToast = (msg: string, type: "ok" | "err") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
+
   const fetchHistorial = async (numSerie: string, filtros: any) => {
     return await getHistorialMantenimientos(numSerie, filtros);
   };
+
   // MODALS
 
   const [detalle, setDetalle] = useState<any>(null);
@@ -71,7 +72,8 @@ export function UnidadesSection() {
   const [editForm, setEditForm] = useState<any>({
     matricula: "",
     estatus: "ACTIVO",
-    id_tipo: ""
+    id_tipo: "",
+    id_marca: ""  // ✅ AÑADIDO
   });
 
   const [editLoading, setEditLoading] = useState(false);
@@ -79,10 +81,12 @@ export function UnidadesSection() {
 
   const [showCreate, setShowCreate] = useState(false);
 
+  // ✅ CORREGIDO: id_marca agregado al estado inicial del form
   const [createForm, setCreateForm] = useState<any>({
     num_serie: "",
     matricula: "",
     id_tipo: "",
+    id_marca: "",  // ✅ AÑADIDO
     estatus: "ACTIVO"
   });
 
@@ -99,7 +103,6 @@ export function UnidadesSection() {
 
         const resTipos = await fetch(`${API_BASE}/tipos`);
         const dataTipos = await resTipos.json();
-
 
         if (Array.isArray(dataTipos)) {
           setTipos(dataTipos);
@@ -146,6 +149,7 @@ export function UnidadesSection() {
       if (query) params.query = query;
 
       params.orden = filtros.orden;
+
       const data = await getVehiculos(params);
 
       const lista = data?.vehiculos ?? [];
@@ -166,9 +170,7 @@ export function UnidadesSection() {
   // CARGA INICIAL
 
   useEffect(() => {
-
     fetchVehiculos(0);
-
   }, []);
 
   // BUSQUEDA AUTOMATICA
@@ -186,10 +188,8 @@ export function UnidadesSection() {
   // FILTROS AUTOMATICOS
 
   useEffect(() => {
-
     setOffset(0);
     fetchVehiculos(0);
-
   }, [filtros]);
 
   const handleNext = () => {
@@ -201,11 +201,11 @@ export function UnidadesSection() {
     fetchVehiculos(offset - limit);
   };
 
-
   const handleVerHistorial = (vehiculo: any) => {
     setVehiculoHistorial(vehiculo);
     setShowHistorial(true);
   };
+
   // VER DETALLE
 
   const handleVer = async (numSerie: string) => {
@@ -217,8 +217,6 @@ export function UnidadesSection() {
 
       const data = await getVehiculo(numSerie);
 
-      console.log("Detalle recibido:", data);
-
       if (Array.isArray(data)) {
         setDetalle(data[0]);
       } else {
@@ -226,9 +224,7 @@ export function UnidadesSection() {
       }
 
     } catch (e: any) {
-
       setDetalleError(e.message);
-
     }
 
     setDetalleLoading(false);
@@ -249,12 +245,20 @@ export function UnidadesSection() {
       showToast("Vehículo creado", "ok");
 
       setShowCreate(false);
+
+      // ✅ Resetear form incluyendo id_marca
+      setCreateForm({
+        num_serie: "",
+        matricula: "",
+        id_tipo: "",
+        id_marca: "",
+        estatus: "ACTIVO"
+      });
+
       fetchVehiculos(0);
 
     } catch (e: any) {
-
       setCreateError(e.message);
-
     }
 
     setCreateLoading(false);
@@ -280,9 +284,7 @@ export function UnidadesSection() {
       fetchVehiculos(offset);
 
     } catch (e: any) {
-
       setEditError(e.message);
-
     }
 
     setEditLoading(false);
@@ -308,9 +310,7 @@ export function UnidadesSection() {
       fetchVehiculos(offset);
 
     } catch (e: any) {
-
       setDeleteError(e.message);
-
     }
 
     setDeleteLoading(false);
@@ -333,14 +333,12 @@ export function UnidadesSection() {
       />
 
       {showFilters && (
-
         <FiltrosVehiculos
           filtros={{ ...filtros }}
           setFiltros={setFiltros}
           tipos={tipos}
           marcas={marcas}
         />
-
       )}
 
       <VehiculosTable
@@ -351,10 +349,12 @@ export function UnidadesSection() {
         onVer={handleVer}
         onEdit={(v: any) => {
           setEditTarget(v);
+          // ✅ CORREGIDO: ahora también guarda id_marca al abrir el modal de editar
           setEditForm({
             matricula: v.matricula,
             estatus: v.estatus,
-            id_tipo: v.id_tipo
+            id_tipo: v.id_tipo,
+            id_marca: v.id_marca  // ✅ AÑADIDO
           });
         }}
         onDelete={(v: any) => setDeleteTarget(v)}
@@ -417,27 +417,32 @@ export function UnidadesSection() {
         onConfirm={handleDelete}
       />
 
+      {/* ✅ CORREGIDO: ahora se pasa marcas al ModalCrear */}
       <ModalCrear
         show={showCreate}
         form={createForm}
         setForm={setCreateForm}
         tipos={tipos}
+        marcas={marcas}
         loading={createLoading}
         error={createError}
         onClose={() => setShowCreate(false)}
         onSave={handleCreate}
       />
 
+      {/* ✅ CORREGIDO: ahora se pasa marcas al ModalEditar */}
       <ModalEditar
         target={editTarget}
         form={editForm}
         setForm={setEditForm}
         tipos={tipos}
+        marcas={marcas}
         loading={editLoading}
         error={editError}
         onClose={() => setEditTarget(null)}
         onSave={handleEdit}
       />
+
       <ModalHistorialMantenimientos
         open={showHistorial}
         vehiculo={vehiculoHistorial}

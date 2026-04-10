@@ -7,6 +7,7 @@ export default function ModalCrear({
   form,
   setForm,
   tipos,
+  marcas,      // ✅ AÑADIDO: recibe el array de marcas
   loading,
   error,
   onClose,
@@ -85,6 +86,29 @@ export default function ModalCrear({
               {tipos.map((t: any) => (
                 <option key={t.id_tipo} value={t.id_tipo}>
                   {t.descripcion}
+                </option>
+              ))}
+            </select>
+          </div>
+
+
+          <div>
+            <label className={THEME.label}>
+              Marca *
+            </label>
+
+            <select
+              value={form.id_marca}
+              onChange={(e) =>
+                setForm((f: any) => ({ ...f, id_marca: e.target.value }))
+              }
+              className={`mt-1 w-full ${THEME.select}`}
+            >
+              <option value="">— Selecciona marca —</option>
+
+              {marcas?.map((m: any) => (
+                <option key={m.id_marca} value={m.id_marca}>
+                  {m.nombre}
                 </option>
               ))}
             </select>

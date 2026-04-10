@@ -51,8 +51,11 @@ export default function VehiculosTable({
 
           {!loading && vehiculos.map((v: any) => {
 
+
             const marcaNombre =
-              marcas?.find((m: any) => m.id_marca === v.id_marca)?.nombre ?? "—";
+              v.marca ??
+              marcas?.find((m: any) => m.id_marca === v.id_marca)?.nombre ??
+              "—";
 
             return (
               <tr key={v.num_serie} className={THEME.trow}>
