@@ -8,6 +8,8 @@ export default function ModalCrear({
   setForm,
   tipos,
   marcas,      // ✅ AÑADIDO: recibe el array de marcas
+  fieldErrors,
+  onFieldBlur,
   loading,
   error,
   onClose,
@@ -49,10 +51,15 @@ export default function ModalCrear({
             <input
               value={form.num_serie}
               onChange={(e) =>
-                setForm((f: any) => ({ ...f, num_serie: e.target.value }))
+                setForm((f: any) => ({ ...f, num_serie: e.target.value.toUpperCase().replace(/\s+/g, "") }))
               }
-              className={`mt-1 w-full ${THEME.input}`}
+              onBlur={() => onFieldBlur?.("num_serie")}
+              maxLength={17}
+              className={`mt-1 w-full ${THEME.input} ${fieldErrors?.num_serie ? "ring-2 ring-rose-300" : ""}`}
             />
+            {fieldErrors?.num_serie && (
+              <p className="mt-1 text-xs text-rose-600">{fieldErrors.num_serie}</p>
+            )}
           </div>
 
           <div>
@@ -63,10 +70,18 @@ export default function ModalCrear({
             <input
               value={form.matricula}
               onChange={(e) =>
-                setForm((f: any) => ({ ...f, matricula: e.target.value }))
+                setForm((f: any) => ({
+                  ...f,
+                  matricula: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7)
+                }))
               }
-              className={`mt-1 w-full ${THEME.input}`}
+              onBlur={() => onFieldBlur?.("matricula")}
+              maxLength={7}
+              className={`mt-1 w-full ${THEME.input} ${fieldErrors?.matricula ? "ring-2 ring-rose-300" : ""}`}
             />
+            {fieldErrors?.matricula && (
+              <p className="mt-1 text-xs text-rose-600">{fieldErrors.matricula}</p>
+            )}
           </div>
 
           <div>
@@ -79,7 +94,8 @@ export default function ModalCrear({
               onChange={(e) =>
                 setForm((f: any) => ({ ...f, id_tipo: e.target.value }))
               }
-              className={`mt-1 w-full ${THEME.select}`}
+              onBlur={() => onFieldBlur?.("id_tipo")}
+              className={`mt-1 w-full ${THEME.select} ${fieldErrors?.id_tipo ? "ring-2 ring-rose-300" : ""}`}
             >
               <option value="">— Selecciona tipo —</option>
 
@@ -89,6 +105,9 @@ export default function ModalCrear({
                 </option>
               ))}
             </select>
+            {fieldErrors?.id_tipo && (
+              <p className="mt-1 text-xs text-rose-600">{fieldErrors.id_tipo}</p>
+            )}
           </div>
 
 
@@ -102,7 +121,8 @@ export default function ModalCrear({
               onChange={(e) =>
                 setForm((f: any) => ({ ...f, id_marca: e.target.value }))
               }
-              className={`mt-1 w-full ${THEME.select}`}
+              onBlur={() => onFieldBlur?.("id_marca")}
+              className={`mt-1 w-full ${THEME.select} ${fieldErrors?.id_marca ? "ring-2 ring-rose-300" : ""}`}
             >
               <option value="">— Selecciona marca —</option>
 
@@ -112,24 +132,9 @@ export default function ModalCrear({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className={THEME.label}>
-              Estatus inicial
-            </label>
-
-            <select
-              value={form.estatus}
-              onChange={(e) =>
-                setForm((f: any) => ({ ...f, estatus: e.target.value }))
-              }
-              className={`mt-1 w-full ${THEME.select}`}
-            >
-              <option value="ACTIVO">ACTIVO</option>
-              <option value="INACTIVO">INACTIVO</option>
-              <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-            </select>
+            {fieldErrors?.id_marca && (
+              <p className="mt-1 text-xs text-rose-600">{fieldErrors.id_marca}</p>
+            )}
           </div>
 
           {error && (

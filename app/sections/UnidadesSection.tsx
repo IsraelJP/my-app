@@ -23,6 +23,7 @@ import ModalEliminar from "../components/unidades/ModalEliminar";
 import { getMarcas } from "../services/marcas";
 import ModalHistorialMantenimientos from "../components/unidades/ModalHistorialMantenimientos";
 import ModalCrearMantenimiento from "../components/unidades/ModalCrearMantenimiento";
+import ModalConfirmarMantenimiento from "../components/unidades/ModalConfirmarMantenimiento";
 import { crearMantenimiento } from "../services/mantenimientos";
 import { API_BASE } from "./common";
 
@@ -102,12 +103,69 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
     num_serie: "",
     matricula: "",
     id_tipo: "",
-    id_marca: "",  // ✅ AÑADIDO
-    estatus: "ACTIVO"
+    id_marca: ""  // ✅ AÑADIDO
   });
 
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<any>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<any>({});
+  const [createTouched, setCreateTouched] = useState<any>({});
+  const [showConfirmMantenimiento, setShowConfirmMantenimiento] = useState(false);
+  const [nuevoVehiculoSerie, setNuevoVehiculoSerie] = useState("");
+
+  const validateCreateField = (field: string, value: any) => {
+    const strValue = String(value ?? "").trim();
+
+    if (field === "num_serie") {
+      if (!strValue) return "El numero de serie es obligatorio.";
+      if (!/^[A-Z0-9]{17}$/.test(strValue)) {
+        return "El numero de serie debe tener exactamente 17 caracteres alfanumericos.";
+      }
+      return "";
+    }
+
+    if (field === "matricula") {
+      if (!strValue) return "La matricula es obligatoria.";
+      if (!/^[A-Z0-9]{6,7}$/.test(strValue.toUpperCase())) {
+        return "La matricula debe ser alfanumerica y tener entre 6 y 7 caracteres.";
+      }
+      return "";
+    }
+
+    if (field === "id_tipo") {
+      if (!strValue) return "Selecciona un tipo de vehiculo.";
+      return "";
+    }
+
+    if (field === "id_marca") {
+      if (!strValue) return "Selecciona una marca.";
+      return "";
+    }
+
+    return "";
+  };
+
+  const validateCreateForm = (formValue: any) => {
+    const fields = ["num_serie", "matricula", "id_tipo", "id_marca"];
+    const nextErrors: any = {};
+
+    fields.forEach((field) => {
+      const fieldError = validateCreateField(field, formValue[field]);
+      if (fieldError) nextErrors[field] = fieldError;
+    });
+
+    return nextErrors;
+  };
+
+  const handleBlurCreateField = (field: string) => {
+    const fieldError = validateCreateField(field, createForm[field]);
+
+    setCreateTouched((prev: any) => ({ ...prev, [field]: true }));
+    setCreateFieldErrors((prev: any) => ({
+      ...prev,
+      [field]: fieldError
+    }));
+  };
 
   // CARGAR TIPOS & MARCAS
 
@@ -251,24 +309,48 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
 
   const handleCreate = async () => {
 
+    const errors = validateCreateForm(createForm);
+
+    if (Object.keys(errors).length > 0) {
+      setCreateFieldErrors(errors);
+      setCreateTouched({
+        num_serie: true,
+        matricula: true,
+        id_tipo: true,
+        id_marca: true
+      });
+      setCreateError("Corrige los campos marcados antes de continuar.");
+      return;
+    }
+
     setCreateLoading(true);
     setCreateError(null);
 
     try {
 
-      await crearVehiculo(createForm);
+      const payload = {
+        ...createForm,
+        num_serie: createForm.num_serie.trim().toUpperCase(),
+        matricula: createForm.matricula.trim().toUpperCase(),
+        estatus: "ACTIVO"
+      };
+
+      await crearVehiculo(payload);
 
       showToast("Vehículo creado", "ok");
 
       setShowCreate(false);
+      setNuevoVehiculoSerie(payload.num_serie);
+      setShowConfirmMantenimiento(true);
+      setCreateFieldErrors({});
+      setCreateTouched({});
 
       // ✅ Resetear form incluyendo id_marca
       setCreateForm({
         num_serie: "",
         matricula: "",
         id_tipo: "",
-        id_marca: "",
-        estatus: "ACTIVO"
+        id_marca: ""
       });
 
       fetchVehiculos(0);
@@ -279,6 +361,24 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
 
     setCreateLoading(false);
 
+  };
+
+  const handleConfirmarMantenimientoDesdeCreacion = () => {
+    if (!nuevoVehiculoSerie) {
+      setShowConfirmMantenimiento(false);
+      return;
+    }
+
+    const hoy = new Date().toISOString().split("T")[0];
+
+    setMantenimientoForm({
+      num_serie: nuevoVehiculoSerie,
+      id_tipo_mantenimiento: "",
+      fecha_inicio_mantenimiento: hoy
+    });
+
+    setShowConfirmMantenimiento(false);
+    setShowMantenimiento(true);
   };
 
   // EDITAR
@@ -400,7 +500,12 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
         onSearch={() => fetchVehiculos(0)}
         filtrosActivos={Object.values(filtros).filter(v => v).length}
         onToggleFilters={() => setShowFilters(!showFilters)}
-        onNuevo={() => setShowCreate(true)}
+        onNuevo={() => {
+          setCreateError(null);
+          setCreateFieldErrors({});
+          setCreateTouched({});
+          setShowCreate(true);
+        }}
       />
 
       {showFilters && (
@@ -423,7 +528,7 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
           // ✅ CORREGIDO: ahora también guarda id_marca al abrir el modal de editar
           setEditForm({
             matricula: v.matricula,
-            estatus: v.estatus,
+            estatus: v.estatus === "MANTENIMIENTO" ? "ACTIVO" : v.estatus,
             id_tipo: v.id_tipo,
             id_marca: v.id_marca  // ✅ AÑADIDO
           });
@@ -506,10 +611,32 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
         setForm={setCreateForm}
         tipos={tipos}
         marcas={marcas}
+        fieldErrors={Object.keys(createTouched).reduce((acc: any, key: string) => {
+          if (createTouched[key] && createFieldErrors[key]) {
+            acc[key] = createFieldErrors[key];
+          }
+          return acc;
+        }, {})}
+        onFieldBlur={handleBlurCreateField}
         loading={createLoading}
         error={createError}
-        onClose={() => setShowCreate(false)}
+        onClose={() => {
+          setShowCreate(false);
+          setCreateError(null);
+          setCreateFieldErrors({});
+          setCreateTouched({});
+        }}
         onSave={handleCreate}
+      />
+
+      <ModalConfirmarMantenimiento
+        show={showConfirmMantenimiento}
+        numSerie={nuevoVehiculoSerie}
+        onConfirm={handleConfirmarMantenimientoDesdeCreacion}
+        onCancel={() => {
+          setShowConfirmMantenimiento(false);
+          setNuevoVehiculoSerie("");
+        }}
       />
 
       {/* ✅ CORREGIDO: ahora se pasa marcas al ModalEditar */}
