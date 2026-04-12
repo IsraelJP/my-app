@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { THEME } from "../theme";
 import { API_BASE, Card, formatDateTime, MantenimientoRow, ResumenMantenimientos } from "./common";
+import ModalFinalizarMantenimiento from "../components/unidades/ModalFinalizarMantenimiento";
+import { finalizarMantenimiento } from "../services/mantenimientos";
 
 type Tab = "activos" | "historial";
 
@@ -39,30 +41,40 @@ export function TiposMantenimientoSection() {
   const [tab, setTab] = useState<Tab>("activos");
 
   // Resumen KPIs — se carga al montar
-  const [resumen, setResumen]               = useState<ResumenMantenimientos>({ en_mantenimiento_total: 0, por_tipo: [] });
+  const [resumen, setResumen] = useState<ResumenMantenimientos>({ en_mantenimiento_total: 0, por_tipo: [] });
   const [resumenLoading, setResumenLoading] = useState(true);
 
   // Datos compartidos entre pestañas
   const [mantenimientos, setMantenimientos] = useState<MantenimientoRow[]>([]);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
-  const [hasSearched, setHasSearched]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Actualizacion (finalización) de mantenimientos
+  const [showFinalizar, setShowFinalizar] = useState(false);
+  const [mantenimientoFinalizar, setMantenimientoFinalizar] = useState<any>(null);
+  const [finalizarForm, setFinalizarForm] = useState({
+    fecha_termino_mantenimiento: "",
+    fecha_egreso_taller: "",
+  });
+  const [finalizarLoading, setFinalizarLoading] = useState(false);
+  const [finalizarError, setFinalizarError] = useState<string | null>(null);
 
   // ── Búsqueda y filtros — Activos ─────────────────────────────────────────
-  const [queryActivos, setQueryActivos]       = useState("");
+  const [queryActivos, setQueryActivos] = useState("");
   const [showFiltersActivos, setShowFiltersActivos] = useState(false);
   const [filtroTipoMantActivos, setFiltroTipoMantActivos] = useState("");
-  const [filtroTipoVehActivos, setFiltroTipoVehActivos]   = useState("");
+  const [filtroTipoVehActivos, setFiltroTipoVehActivos] = useState("");
   // TODO: agregar filtro de marca cuando se añada el campo a la tabla VEHICULOS
 
   // ── Búsqueda y filtros — Historial ───────────────────────────────────────
-  const [queryHistorial, setQueryHistorial]       = useState("");
+  const [queryHistorial, setQueryHistorial] = useState("");
   const [showFiltersHistorial, setShowFiltersHistorial] = useState(false);
-  const [filtroEstadoHist, setFiltroEstadoHist]           = useState("");
-  const [filtroTipoVehHist, setFiltroTipoVehHist]         = useState("");
-  const [filtroTipoMantHist, setFiltroTipoMantHist]       = useState("");
-  const [filtroFechaDesde, setFiltroFechaDesde]           = useState("");
-  const [filtroFechaHasta, setFiltroFechaHasta]           = useState("");
+  const [filtroEstadoHist, setFiltroEstadoHist] = useState("");
+  const [filtroTipoVehHist, setFiltroTipoVehHist] = useState("");
+  const [filtroTipoMantHist, setFiltroTipoMantHist] = useState("");
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   // TODO: agregar filtro de marca en historial cuando se añada el campo a la tabla VEHICULOS
 
   useEffect(() => {
@@ -80,7 +92,7 @@ export function TiposMantenimientoSection() {
 
   // Opciones únicas para los selectores de filtro (derivadas de los datos cargados)
   const tiposVehiculo = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_vehiculo))).sort(), [mantenimientos]);
-  const tiposMant     = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_mantenimiento))).sort(), [mantenimientos]);
+  const tiposMant = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_mantenimiento))).sort(), [mantenimientos]);
 
   const handleSearch = async () => {
     setHasSearched(true);
@@ -98,6 +110,33 @@ export function TiposMantenimientoSection() {
     }
   };
 
+  //ACTUALIZAR MANTENIMIENTO
+  const handleFinalizar = async () => {
+    setFinalizarError(null);
+
+    if (!finalizarForm.fecha_termino_mantenimiento || !finalizarForm.fecha_egreso_taller) {
+      setFinalizarError("Completa ambas fechas antes de continuar.");
+      return;
+    }
+
+    setFinalizarLoading(true);
+    try {
+      await finalizarMantenimiento({
+        folio: mantenimientoFinalizar.folio,
+        fecha_egreso_taller: finalizarForm.fecha_egreso_taller,
+        fecha_termino_mantenimiento: finalizarForm.fecha_termino_mantenimiento,
+      });
+      setShowFinalizar(false);
+      setMantenimientoFinalizar(null);
+      // Recargar datos
+      await handleSearch();
+    } catch (e: any) {
+      setFinalizarError(e.message);
+    } finally {
+      setFinalizarLoading(false);
+    }
+  };
+
   // Ir al historial de un vehículo específico desde la pestaña Activos
   const verHistorial = (num_serie: string) => {
     setQueryHistorial(num_serie);
@@ -111,8 +150,8 @@ export function TiposMantenimientoSection() {
     return mantenimientos.filter((m) => {
       if (m.estado_mantenimiento !== "EN_MANTENIMIENTO") return false;
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
-      const matchTipoVeh  = !filtroTipoVehActivos  || m.tipo_vehiculo       === filtroTipoVehActivos;
-      const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento  === filtroTipoMantActivos;
+      const matchTipoVeh = !filtroTipoVehActivos || m.tipo_vehiculo === filtroTipoVehActivos;
+      const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento === filtroTipoMantActivos;
       // TODO: agregar matchMarca cuando el campo esté disponible en la BD
       return matchQuery && matchTipoVeh && matchTipoMant;
     });
@@ -123,9 +162,9 @@ export function TiposMantenimientoSection() {
     const q = queryHistorial.trim().toLowerCase();
     return mantenimientos.filter((m) => {
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
-      const matchEstado   = !filtroEstadoHist  || m.estado_mantenimiento === filtroEstadoHist;
-      const matchTipoVeh  = !filtroTipoVehHist || m.tipo_vehiculo        === filtroTipoVehHist;
-      const matchTipoMant = !filtroTipoMantHist || m.tipo_mantenimiento  === filtroTipoMantHist;
+      const matchEstado = !filtroEstadoHist || m.estado_mantenimiento === filtroEstadoHist;
+      const matchTipoVeh = !filtroTipoVehHist || m.tipo_vehiculo === filtroTipoVehHist;
+      const matchTipoMant = !filtroTipoMantHist || m.tipo_mantenimiento === filtroTipoMantHist;
       // TODO: agregar matchMarca en historial cuando el campo esté disponible en la BD
       const fecha = m.fecha_ingreso_taller ? new Date(m.fecha_ingreso_taller) : null;
       const matchDesde = !filtroFechaDesde || (fecha && fecha >= new Date(filtroFechaDesde));
@@ -134,7 +173,7 @@ export function TiposMantenimientoSection() {
     });
   }, [mantenimientos, queryHistorial, filtroEstadoHist, filtroTipoVehHist, filtroTipoMantHist, filtroFechaDesde, filtroFechaHasta]);
 
-  const filtrosActivosActivos   = [filtroTipoVehActivos, filtroTipoMantActivos].filter(Boolean).length;
+  const filtrosActivosActivos = [filtroTipoVehActivos, filtroTipoMantActivos].filter(Boolean).length;
   const filtrosActivosHistorial = [filtroEstadoHist, filtroTipoVehHist, filtroTipoMantHist, filtroFechaDesde, filtroFechaHasta].filter(Boolean).length;
   // TODO: incluir filtro de marca en el conteo de ambas pestañas cuando se implemente
 
@@ -189,9 +228,26 @@ export function TiposMantenimientoSection() {
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_termino_mantenimiento)}</td>
                   {conAccionHistorial && (
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => verHistorial(item.num_serie)} className={THEME.btnGhost}>
-                        Ver historial
-                      </button>
+                      <div className="inline-flex gap-2">
+                        <button onClick={() => verHistorial(item.num_serie)} className={THEME.btnGhost}>
+                          Ver historial
+                        </button>
+                        <button
+                          onClick={() => {
+                            const hoy = new Date().toISOString().split("T")[0];
+                            setMantenimientoFinalizar(item);
+                            setFinalizarForm({
+                              fecha_termino_mantenimiento: hoy,
+                              fecha_egreso_taller: hoy,
+                            });
+                            setFinalizarError(null);
+                            setShowFinalizar(true);
+                          }}
+                          className={THEME.btnSuccess}
+                        >
+                          Actualizar
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -396,6 +452,19 @@ export function TiposMantenimientoSection() {
           )}
         </div>
       </div>
+      <ModalFinalizarMantenimiento
+        show={showFinalizar}
+        mantenimiento={mantenimientoFinalizar}
+        form={finalizarForm}
+        setForm={setFinalizarForm}
+        loading={finalizarLoading}
+        error={finalizarError}
+        onClose={() => {
+          setShowFinalizar(false);
+          setMantenimientoFinalizar(null);
+        }}
+        onSave={handleFinalizar}
+      />
     </section>
   );
 }
