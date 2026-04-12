@@ -22,7 +22,6 @@ function EmptyState({ mensaje }: { mensaje: string }) {
   );
 }
 
-// ── Badge de estado ──────────────────────────────────────────────────────────
 function EstadoBadge({ estado }: { estado: string }) {
   return (
     <span className={[
@@ -35,35 +34,36 @@ function EstadoBadge({ estado }: { estado: string }) {
 }
 
 export function TiposMantenimientoSection() {
-  // Pestaña activa
   const [tab, setTab] = useState<Tab>("activos");
-
-  // Resumen KPIs — se carga al montar
-  const [resumen, setResumen]               = useState<ResumenMantenimientos>({ en_mantenimiento_total: 0, por_tipo: [] });
+  const [resumen, setResumen] = useState<ResumenMantenimientos>({ en_mantenimiento_total: 0, por_tipo: [] });
   const [resumenLoading, setResumenLoading] = useState(true);
-
-  // Datos compartidos entre pestañas
   const [mantenimientos, setMantenimientos] = useState<MantenimientoRow[]>([]);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
-  const [hasSearched, setHasSearched]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // ── Búsqueda y filtros — Activos ─────────────────────────────────────────
-  const [queryActivos, setQueryActivos]       = useState("");
+  // Activos
+  const [queryActivos, setQueryActivos] = useState("");
   const [showFiltersActivos, setShowFiltersActivos] = useState(false);
-  const [filtroTipoMantActivos, setFiltroTipoMantActivos] = useState("");
-  const [filtroTipoVehActivos, setFiltroTipoVehActivos]   = useState("");
-  // TODO: agregar filtro de marca cuando se añada el campo a la tabla VEHICULOS
+  const [filtroNumSerieActivos, setFiltroNumSerieActivos] = useState("");
+  const [filtroTipoVehActivos, setFiltroTipoVehActivos] = useState("");
 
-  // ── Búsqueda y filtros — Historial ───────────────────────────────────────
-  const [queryHistorial, setQueryHistorial]       = useState("");
+  // Historial
+  const [queryHistorial, setQueryHistorial] = useState("");
   const [showFiltersHistorial, setShowFiltersHistorial] = useState(false);
-  const [filtroEstadoHist, setFiltroEstadoHist]           = useState("");
-  const [filtroTipoVehHist, setFiltroTipoVehHist]         = useState("");
-  const [filtroTipoMantHist, setFiltroTipoMantHist]       = useState("");
-  const [filtroFechaDesde, setFiltroFechaDesde]           = useState("");
-  const [filtroFechaHasta, setFiltroFechaHasta]           = useState("");
-  // TODO: agregar filtro de marca en historial cuando se añada el campo a la tabla VEHICULOS
+  const [filtroEstadoHist, setFiltroEstadoHist] = useState("");
+  const [filtroNumSerieHist, setFiltroNumSerieHist] = useState("");
+  const [filtroTipoVehHist, setFiltroTipoVehHist] = useState("");
+  const [filtroTipoMantHist, setFiltroTipoMantHist] = useState("");
+  const [filtroMarcaHist, setFiltroMarcaHist] = useState("");
+  const [filtroFechaIngresoDesde, setFiltroFechaIngresoDesde] = useState("");
+  const [filtroFechaIngresoHasta, setFiltroFechaIngresoHasta] = useState("");
+  const [filtroFechaInicioDesde, setFiltroFechaInicioDesde] = useState("");
+  const [filtroFechaInicioHasta, setFiltroFechaInicioHasta] = useState("");
+  const [filtroFechaFinDesde, setFiltroFechaFinDesde] = useState("");
+  const [filtroFechaFinHasta, setFiltroFechaFinHasta] = useState("");
+  const [filtroFechaSalidaDesde, setFiltroFechaSalidaDesde] = useState("");
+  const [filtroFechaSalidaHasta, setFiltroFechaSalidaHasta] = useState("");
 
   useEffect(() => {
     const fetchResumen = async () => {
@@ -78,9 +78,9 @@ export function TiposMantenimientoSection() {
     fetchResumen();
   }, []);
 
-  // Opciones únicas para los selectores de filtro (derivadas de los datos cargados)
   const tiposVehiculo = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_vehiculo))).sort(), [mantenimientos]);
-  const tiposMant     = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_mantenimiento))).sort(), [mantenimientos]);
+  const tiposMant = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.tipo_mantenimiento))).sort(), [mantenimientos]);
+  const marcas = useMemo(() => Array.from(new Set(mantenimientos.map((m) => m.marca))).sort(), [mantenimientos]);
 
   const handleSearch = async () => {
     setHasSearched(true);
@@ -98,54 +98,84 @@ export function TiposMantenimientoSection() {
     }
   };
 
-  // Ir al historial de un vehículo específico desde la pestaña Activos
   const verHistorial = (num_serie: string) => {
     setQueryHistorial(num_serie);
     setTab("historial");
     if (!hasSearched) handleSearch();
   };
 
-  // ── Filtrado — Activos (solo EN_MANTENIMIENTO) ───────────────────────────
   const filtradosActivos = useMemo(() => {
     const q = queryActivos.trim().toLowerCase();
     return mantenimientos.filter((m) => {
       if (m.estado_mantenimiento !== "EN_MANTENIMIENTO") return false;
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
-      const matchTipoVeh  = !filtroTipoVehActivos  || m.tipo_vehiculo       === filtroTipoVehActivos;
-      const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento  === filtroTipoMantActivos;
-      // TODO: agregar matchMarca cuando el campo esté disponible en la BD
-      return matchQuery && matchTipoVeh && matchTipoMant;
+      const matchNumSerie = !filtroNumSerieActivos || m.num_serie.toLowerCase().includes(filtroNumSerieActivos.toLowerCase());
+      const matchTipoVeh = !filtroTipoVehActivos || m.tipo_vehiculo === filtroTipoVehActivos;
+      return matchQuery && matchNumSerie && matchTipoVeh;
     });
-  }, [mantenimientos, queryActivos, filtroTipoVehActivos, filtroTipoMantActivos]);
+  }, [mantenimientos, queryActivos, filtroNumSerieActivos, filtroTipoVehActivos]);
 
-  // ── Filtrado — Historial (todos los registros) ───────────────────────────
   const filtradosHistorial = useMemo(() => {
     const q = queryHistorial.trim().toLowerCase();
     return mantenimientos.filter((m) => {
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
-      const matchEstado   = !filtroEstadoHist  || m.estado_mantenimiento === filtroEstadoHist;
-      const matchTipoVeh  = !filtroTipoVehHist || m.tipo_vehiculo        === filtroTipoVehHist;
-      const matchTipoMant = !filtroTipoMantHist || m.tipo_mantenimiento  === filtroTipoMantHist;
-      // TODO: agregar matchMarca en historial cuando el campo esté disponible en la BD
-      const fecha = m.fecha_ingreso_taller ? new Date(m.fecha_ingreso_taller) : null;
-      const matchDesde = !filtroFechaDesde || (fecha && fecha >= new Date(filtroFechaDesde));
-      const matchHasta = !filtroFechaHasta || (fecha && fecha <= new Date(filtroFechaHasta + "T23:59:59"));
-      return matchQuery && matchEstado && matchTipoVeh && matchTipoMant && matchDesde && matchHasta;
+      const matchEstado = !filtroEstadoHist || m.estado_mantenimiento === filtroEstadoHist;
+      const matchNumSerie = !filtroNumSerieHist || m.num_serie.toLowerCase().includes(filtroNumSerieHist.toLowerCase());
+      const matchTipoVeh = !filtroTipoVehHist || m.tipo_vehiculo === filtroTipoVehHist;
+      const matchTipoMant = !filtroTipoMantHist || m.tipo_mantenimiento === filtroTipoMantHist;
+      const matchMarca = !filtroMarcaHist || m.marca === filtroMarcaHist;
+
+      const fechaIngreso = m.fecha_ingreso_taller ? new Date(m.fecha_ingreso_taller) : null;
+      const matchIngresoDesde = !filtroFechaIngresoDesde || (fechaIngreso && fechaIngreso >= new Date(filtroFechaIngresoDesde));
+      const matchIngresoHasta = !filtroFechaIngresoHasta || (fechaIngreso && fechaIngreso <= new Date(filtroFechaIngresoHasta + "T23:59:59"));
+
+      const fechaInicio = m.fecha_inicio_mantenimiento ? new Date(m.fecha_inicio_mantenimiento) : null;
+      const matchInicioDesde = !filtroFechaInicioDesde || (fechaInicio && fechaInicio >= new Date(filtroFechaInicioDesde));
+      const matchInicioHasta = !filtroFechaInicioHasta || (fechaInicio && fechaInicio <= new Date(filtroFechaInicioHasta + "T23:59:59"));
+
+      const fechaFin = m.fecha_termino_mantenimiento ? new Date(m.fecha_termino_mantenimiento) : null;
+      const matchFinDesde = !filtroFechaFinDesde || !fechaFin || (fechaFin >= new Date(filtroFechaFinDesde));
+      const matchFinHasta = !filtroFechaFinHasta || !fechaFin || (fechaFin <= new Date(filtroFechaFinHasta + "T23:59:59"));
+
+      const fechaSalida = m.fecha_egreso_taller ? new Date(m.fecha_egreso_taller) : null;
+      const matchSalidaDesde = !filtroFechaSalidaDesde || !fechaSalida || (fechaSalida >= new Date(filtroFechaSalidaDesde));
+      const matchSalidaHasta = !filtroFechaSalidaHasta || !fechaSalida || (fechaSalida <= new Date(filtroFechaSalidaHasta + "T23:59:59"));
+
+      return matchQuery && matchEstado && matchNumSerie && matchTipoVeh && matchTipoMant && matchMarca &&
+        matchIngresoDesde && matchIngresoHasta && matchInicioDesde && matchInicioHasta &&
+        matchFinDesde && matchFinHasta && matchSalidaDesde && matchSalidaHasta;
     });
-  }, [mantenimientos, queryHistorial, filtroEstadoHist, filtroTipoVehHist, filtroTipoMantHist, filtroFechaDesde, filtroFechaHasta]);
+  }, [mantenimientos, queryHistorial, filtroEstadoHist, filtroNumSerieHist, filtroTipoVehHist, filtroTipoMantHist,
+    filtroMarcaHist, filtroFechaIngresoDesde, filtroFechaIngresoHasta, filtroFechaInicioDesde, filtroFechaInicioHasta,
+    filtroFechaFinDesde, filtroFechaFinHasta, filtroFechaSalidaDesde, filtroFechaSalidaHasta]);
 
-  const filtrosActivosActivos   = [filtroTipoVehActivos, filtroTipoMantActivos].filter(Boolean).length;
-  const filtrosActivosHistorial = [filtroEstadoHist, filtroTipoVehHist, filtroTipoMantHist, filtroFechaDesde, filtroFechaHasta].filter(Boolean).length;
-  // TODO: incluir filtro de marca en el conteo de ambas pestañas cuando se implemente
+  const filtrosActivosActivos = [filtroNumSerieActivos, filtroTipoVehActivos].filter(Boolean).length;
+  const filtrosActivosHistorial = [filtroEstadoHist, filtroNumSerieHist, filtroTipoVehHist, filtroTipoMantHist,
+    filtroMarcaHist, filtroFechaIngresoDesde, filtroFechaIngresoHasta,
+    filtroFechaInicioDesde, filtroFechaInicioHasta, filtroFechaFinDesde,
+    filtroFechaFinHasta, filtroFechaSalidaDesde, filtroFechaSalidaHasta].filter(Boolean).length;
 
-  const limpiarFiltrosActivos = () => { setFiltroTipoVehActivos(""); setFiltroTipoMantActivos(""); };
-  const limpiarFiltrosHistorial = () => {
-    setFiltroEstadoHist(""); setFiltroTipoVehHist(""); setFiltroTipoMantHist("");
-    setFiltroFechaDesde(""); setFiltroFechaHasta("");
-    // TODO: limpiar filtro de marca cuando se implemente
+  const limpiarFiltrosActivos = () => {
+    setFiltroNumSerieActivos("");
+    setFiltroTipoVehActivos("");
   };
 
-  // ── Tabla compartida ─────────────────────────────────────────────────────
+  const limpiarFiltrosHistorial = () => {
+    setFiltroEstadoHist("");
+    setFiltroNumSerieHist("");
+    setFiltroTipoVehHist("");
+    setFiltroTipoMantHist("");
+    setFiltroMarcaHist("");
+    setFiltroFechaIngresoDesde("");
+    setFiltroFechaIngresoHasta("");
+    setFiltroFechaInicioDesde("");
+    setFiltroFechaInicioHasta("");
+    setFiltroFechaFinDesde("");
+    setFiltroFechaFinHasta("");
+    setFiltroFechaSalidaDesde("");
+    setFiltroFechaSalidaHasta("");
+  };
+
   function TablaMantenimientos({ filas, conAccionHistorial }: { filas: MantenimientoRow[]; conAccionHistorial: boolean }) {
     return (
       <div className={THEME.tableWrapper}>
@@ -155,6 +185,7 @@ export function TiposMantenimientoSection() {
               <th className={THEME.th}>Serie</th>
               <th className={THEME.th}>Matrícula</th>
               <th className={THEME.th}>Tipo mant.</th>
+              <th className={THEME.th}>Marca</th>
               <th className={THEME.th}>Estado</th>
               <th className={THEME.th}>Entrada taller</th>
               <th className={THEME.th}>Salida taller</th>
@@ -166,13 +197,13 @@ export function TiposMantenimientoSection() {
           <tbody>
             {loading ? (
               <tr className="border-t border-slate-100">
-                <td colSpan={conAccionHistorial ? 9 : 8} className={`px-4 py-6 text-center text-sm ${THEME.muted} animate-pulse`}>
+                <td colSpan={conAccionHistorial ? 10 : 9} className={`px-4 py-6 text-center text-sm ${THEME.muted} animate-pulse`}>
                   Buscando registros...
                 </td>
               </tr>
             ) : filas.length === 0 ? (
               <tr className="border-t border-slate-100">
-                <td colSpan={conAccionHistorial ? 9 : 8} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
+                <td colSpan={conAccionHistorial ? 10 : 9} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
                   No se encontraron registros con esos criterios.
                 </td>
               </tr>
@@ -182,6 +213,7 @@ export function TiposMantenimientoSection() {
                   <td className={THEME.tcellMono}>{item.num_serie}</td>
                   <td className={THEME.tcell}>{item.matricula}</td>
                   <td className={THEME.tcell}>{item.tipo_mantenimiento}</td>
+                  <td className={THEME.tcell}>{item.marca}</td>
                   <td className="px-4 py-3"><EstadoBadge estado={item.estado_mantenimiento} /></td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_ingreso_taller)}</td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_egreso_taller)}</td>
@@ -203,10 +235,8 @@ export function TiposMantenimientoSection() {
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <section className="space-y-4">
-      {/* KPIs */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <Card title="En mantenimiento">
           <p className={`text-3xl font-bold ${THEME.heading}`}>{resumenLoading ? "..." : resumen.en_mantenimiento_total}</p>
@@ -218,9 +248,7 @@ export function TiposMantenimientoSection() {
         ))}
       </div>
 
-      {/* Pestañas */}
       <div className={`rounded-2xl ${THEME.surface} shadow-sm overflow-hidden`}>
-        {/* Tab bar */}
         <div className="flex border-b border-slate-200">
           {(["activos", "historial"] as Tab[]).map((t) => (
             <button
@@ -239,10 +267,8 @@ export function TiposMantenimientoSection() {
         </div>
 
         <div className="p-4 space-y-4">
-          {/* ── Pestaña Activos ───────────────────────────────────────────── */}
           {tab === "activos" && (
             <>
-              {/* Búsqueda */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="flex-1">
                   <label className={THEME.label}>Buscar mantenimiento activo</label>
@@ -268,23 +294,23 @@ export function TiposMantenimientoSection() {
                 </button>
               </div>
 
-              {/* Panel de filtros — Activos */}
               {showFiltersActivos && (
                 <div className={`rounded-xl ${THEME.inset} p-4`}>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {/* TODO: agregar filtro de Marca cuando se añada el campo a la tabla VEHICULOS */}
+                    <div>
+                      <label className={THEME.label}>Número de serie</label>
+                      <input
+                        value={filtroNumSerieActivos}
+                        onChange={(e) => setFiltroNumSerieActivos(e.target.value)}
+                        placeholder="Buscar por serie..."
+                        className={`mt-1 w-full ${THEME.input}`}
+                      />
+                    </div>
                     <div>
                       <label className={THEME.label}>Tipo de vehículo</label>
                       <select value={filtroTipoVehActivos} onChange={(e) => setFiltroTipoVehActivos(e.target.value)} className={`mt-1 w-full ${THEME.select}`}>
                         <option value="">Todos los tipos</option>
                         {tiposVehiculo.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={THEME.label}>Tipo de mantenimiento</label>
-                      <select value={filtroTipoMantActivos} onChange={(e) => setFiltroTipoMantActivos(e.target.value)} className={`mt-1 w-full ${THEME.select}`}>
-                        <option value="">Todos</option>
-                        {tiposMant.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                   </div>
@@ -309,10 +335,8 @@ export function TiposMantenimientoSection() {
             </>
           )}
 
-          {/* ── Pestaña Historial ─────────────────────────────────────────── */}
           {tab === "historial" && (
             <>
-              {/* Búsqueda */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="flex-1">
                   <label className={THEME.label}>Buscar en el historial</label>
@@ -338,11 +362,9 @@ export function TiposMantenimientoSection() {
                 </button>
               </div>
 
-              {/* Panel de filtros — Historial */}
               {showFiltersHistorial && (
-                <div className={`rounded-xl ${THEME.inset} p-4`}>
+                <div className={`rounded-xl ${THEME.inset} p-4 space-y-4`}>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {/* TODO: agregar filtro de Marca en historial cuando se añada el campo a la tabla VEHICULOS */}
                     <div>
                       <label className={THEME.label}>Estado</label>
                       <select value={filtroEstadoHist} onChange={(e) => setFiltroEstadoHist(e.target.value)} className={`mt-1 w-full ${THEME.select}`}>
@@ -350,6 +372,15 @@ export function TiposMantenimientoSection() {
                         <option value="EN_MANTENIMIENTO">En mantenimiento</option>
                         <option value="FINALIZADO">Finalizado</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className={THEME.label}>Número de serie</label>
+                      <input
+                        value={filtroNumSerieHist}
+                        onChange={(e) => setFiltroNumSerieHist(e.target.value)}
+                        placeholder="Buscar por serie..."
+                        className={`mt-1 w-full ${THEME.input}`}
+                      />
                     </div>
                     <div>
                       <label className={THEME.label}>Tipo de vehículo</label>
@@ -366,17 +397,73 @@ export function TiposMantenimientoSection() {
                       </select>
                     </div>
                     <div>
-                      <label className={THEME.label}>Fecha ingreso — desde</label>
-                      <input type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
-                    </div>
-                    <div>
-                      <label className={THEME.label}>Fecha ingreso — hasta</label>
-                      <input type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      <label className={THEME.label}>Marca</label>
+                      <select value={filtroMarcaHist} onChange={(e) => setFiltroMarcaHist(e.target.value)} className={`mt-1 w-full ${THEME.select}`}>
+                        <option value="">Todas las marcas</option>
+                        {marcas.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
                     </div>
                   </div>
+
+                  <div>
+                    <p className={`text-sm font-semibold ${THEME.heading} mb-3`}>Fecha de ingreso taller</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={THEME.label}>Desde</label>
+                        <input type="date" value={filtroFechaIngresoDesde} onChange={(e) => setFiltroFechaIngresoDesde(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                      <div>
+                        <label className={THEME.label}>Hasta</label>
+                        <input type="date" value={filtroFechaIngresoHasta} onChange={(e) => setFiltroFechaIngresoHasta(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`text-sm font-semibold ${THEME.heading} mb-3`}>Fecha de inicio mantenimiento</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={THEME.label}>Desde</label>
+                        <input type="date" value={filtroFechaInicioDesde} onChange={(e) => setFiltroFechaInicioDesde(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                      <div>
+                        <label className={THEME.label}>Hasta</label>
+                        <input type="date" value={filtroFechaInicioHasta} onChange={(e) => setFiltroFechaInicioHasta(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`text-sm font-semibold ${THEME.heading} mb-3`}>Fecha de término mantenimiento</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={THEME.label}>Desde</label>
+                        <input type="date" value={filtroFechaFinDesde} onChange={(e) => setFiltroFechaFinDesde(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                      <div>
+                        <label className={THEME.label}>Hasta</label>
+                        <input type="date" value={filtroFechaFinHasta} onChange={(e) => setFiltroFechaFinHasta(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`text-sm font-semibold ${THEME.heading} mb-3`}>Fecha de salida taller</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={THEME.label}>Desde</label>
+                        <input type="date" value={filtroFechaSalidaDesde} onChange={(e) => setFiltroFechaSalidaDesde(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                      <div>
+                        <label className={THEME.label}>Hasta</label>
+                        <input type="date" value={filtroFechaSalidaHasta} onChange={(e) => setFiltroFechaSalidaHasta(e.target.value)} className={`mt-1 w-full ${THEME.input}`} />
+                      </div>
+                    </div>
+                  </div>
+
                   {filtrosActivosHistorial > 0 && (
                     <button onClick={limpiarFiltrosHistorial} className={`mt-3 text-xs ${THEME.body} underline underline-offset-2`}>
-                      Limpiar filtros
+                      Limpiar todos los filtros
                     </button>
                   )}
                 </div>
