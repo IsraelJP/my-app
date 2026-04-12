@@ -4,7 +4,7 @@ import { THEME } from "../../theme";
 
 export default function ModalFinalizarMantenimiento({
   show,
-  mantenimiento,   // { folio, num_serie, matricula, tipo_mantenimiento }
+  mantenimiento,
   form,
   setForm,
   loading,
@@ -13,6 +13,11 @@ export default function ModalFinalizarMantenimiento({
   onSave,
 }: any) {
   if (!show || !mantenimiento) return null;
+
+  const fechaEgresoInvalida =
+    form.fecha_termino_mantenimiento &&
+    form.fecha_egreso_taller &&
+    form.fecha_egreso_taller < form.fecha_termino_mantenimiento;
 
   return (
     <div
@@ -74,14 +79,20 @@ export default function ModalFinalizarMantenimiento({
             <input
               type="date"
               value={form.fecha_egreso_taller}
+              min={form.fecha_termino_mantenimiento || undefined}
               onChange={(e) =>
                 setForm((f: any) => ({
                   ...f,
                   fecha_egreso_taller: e.target.value,
                 }))
               }
-              className={`mt-1 w-full ${THEME.input}`}
+              className={`mt-1 w-full ${THEME.input} ${fechaEgresoInvalida ? "ring-2 ring-rose-300" : ""}`}
             />
+            {fechaEgresoInvalida && (
+              <p className="mt-1 text-xs text-rose-600">
+                La fecha de egreso no puede ser anterior a la fecha de término del mantenimiento.
+              </p>
+            )}
           </div>
 
           {error && (
@@ -94,8 +105,8 @@ export default function ModalFinalizarMantenimiento({
             </button>
             <button
               onClick={onSave}
-              disabled={loading}
-              className={THEME.btnPrimary}
+              disabled={loading || !!fechaEgresoInvalida}
+              className={`${THEME.btnPrimary} ${fechaEgresoInvalida ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {loading ? "Guardando…" : "Finalizar mantenimiento"}
             </button>
