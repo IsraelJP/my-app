@@ -199,9 +199,9 @@ export function TiposMantenimientoSection() {
               <th className={THEME.th}>Tipo mant.</th>
               <th className={THEME.th}>Estado</th>
               <th className={THEME.th}>Entrada taller</th>
-              <th className={THEME.th}>Salida taller</th>
               <th className={THEME.th}>Inicio mant.</th>
               <th className={THEME.th}>Término mant.</th>
+              <th className={THEME.th}>Salida taller</th>
               {conAccionHistorial && <th className={`${THEME.th} text-right`}>Acciones</th>}
             </tr>
           </thead>
@@ -226,9 +226,9 @@ export function TiposMantenimientoSection() {
                   <td className={THEME.tcell}>{item.tipo_mantenimiento}</td>
                   <td className="px-4 py-3"><EstadoBadge estado={item.estado_mantenimiento} /></td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_ingreso_taller)}</td>
-                  <td className={THEME.tcell}>{formatDateTime(item.fecha_egreso_taller)}</td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_inicio_mantenimiento)}</td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_termino_mantenimiento)}</td>
+                  <td className={THEME.tcell}>{formatDateTime(item.fecha_egreso_taller)}</td>
                   {conAccionHistorial && (
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex gap-2">
