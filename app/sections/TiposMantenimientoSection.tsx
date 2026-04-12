@@ -77,16 +77,17 @@ export function TiposMantenimientoSection() {
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   // TODO: agregar filtro de marca en historial cuando se añada el campo a la tabla VEHICULOS
 
+  const fetchResumen = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/mantenimientos/resumen`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResumen(data && typeof data === "object" ? data : { en_mantenimiento_total: 0, por_tipo: [] });
+    } catch { /* no crítico */ }
+    finally { setResumenLoading(false); }
+  };
+
   useEffect(() => {
-    const fetchResumen = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/mantenimientos/resumen`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setResumen(data && typeof data === "object" ? data : { en_mantenimiento_total: 0, por_tipo: [] });
-      } catch { /* no crítico */ }
-      finally { setResumenLoading(false); }
-    };
     fetchResumen();
   }, []);
 
@@ -128,8 +129,10 @@ export function TiposMantenimientoSection() {
       });
       setShowFinalizar(false);
       setMantenimientoFinalizar(null);
-      // Recargar datos
+      // ── recargar tabla Y kpis ──────────────────────────────────
       await handleSearch();
+      await fetchResumen();
+      // ─────────────────────────────────────────────────────────────────────
     } catch (e: any) {
       setFinalizarError(e.message);
     } finally {
