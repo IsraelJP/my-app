@@ -125,6 +125,10 @@ export function TiposMantenimientoSection() {
     }
   };
 
+  useEffect(() => {
+    handleSearch();
+  }, []);
+
   //ACTUALIZAR MANTENIMIENTO
   const handleFinalizar = async () => {
     setFinalizarError(null);
@@ -168,12 +172,10 @@ export function TiposMantenimientoSection() {
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
       const matchNumSerie = !filtroNumSerieActivos || m.num_serie.toLowerCase().includes(filtroNumSerieActivos.toLowerCase());
       const matchTipoVeh = !filtroTipoVehActivos || m.tipo_vehiculo === filtroTipoVehActivos;
-      return matchQuery && matchNumSerie && matchTipoVeh;
       const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento === filtroTipoMantActivos;
-      // TODO: agregar matchMarca cuando el campo esté disponible en la BD
-      return matchQuery && matchTipoVeh && matchTipoMant;
+      return matchQuery && matchNumSerie && matchTipoVeh && matchTipoMant;
     });
-  }, [mantenimientos, queryActivos, filtroNumSerieActivos, filtroTipoVehActivos]);
+  }, [mantenimientos, queryActivos, filtroNumSerieActivos, filtroTipoVehActivos, filtroTipoMantActivos]);
 
   const filtradosHistorial = useMemo(() => {
     const q = queryHistorial.trim().toLowerCase();
