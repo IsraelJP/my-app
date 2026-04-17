@@ -62,3 +62,21 @@ export async function crearMantenimiento(data: {
 
   return json;
 }
+
+export async function finalizarMantenimiento(data: {
+  folio: number;
+  fecha_egreso_taller: string;
+  fecha_termino_mantenimiento: string;
+}) {
+  const res = await fetch(`${API_BASE}/mantenimientos/finalizar`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.detail || "Error al finalizar mantenimiento");
+  }
+  return json;
+}

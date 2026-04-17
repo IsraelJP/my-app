@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { THEME } from "../theme";
 import { API_BASE, Card, formatDateTime, MantenimientoRow, ResumenMantenimientos } from "./common";
+import ModalFinalizarMantenimiento from "../components/unidades/ModalFinalizarMantenimiento";
+import { finalizarMantenimiento } from "../services/mantenimientos";
 
 type Tab = "activos" | "historial";
 
@@ -35,6 +37,8 @@ function EstadoBadge({ estado }: { estado: string }) {
 
 export function TiposMantenimientoSection() {
   const [tab, setTab] = useState<Tab>("activos");
+
+  // Resumen KPIs — se carga al montar
   const [resumen, setResumen] = useState<ResumenMantenimientos>({ en_mantenimiento_total: 0, por_tipo: [] });
   const [resumenLoading, setResumenLoading] = useState(true);
   const [mantenimientos, setMantenimientos] = useState<MantenimientoRow[]>([]);
@@ -55,6 +59,7 @@ export function TiposMantenimientoSection() {
   const [filtroNumSerieHist, setFiltroNumSerieHist] = useState("");
   const [filtroTipoVehHist, setFiltroTipoVehHist] = useState("");
   const [filtroTipoMantHist, setFiltroTipoMantHist] = useState("");
+
   const [filtroMarcaHist, setFiltroMarcaHist] = useState("");
   const [filtroFechaIngresoDesde, setFiltroFechaIngresoDesde] = useState("");
   const [filtroFechaIngresoHasta, setFiltroFechaIngresoHasta] = useState("");
@@ -65,16 +70,38 @@ export function TiposMantenimientoSection() {
   const [filtroFechaSalidaDesde, setFiltroFechaSalidaDesde] = useState("");
   const [filtroFechaSalidaHasta, setFiltroFechaSalidaHasta] = useState("");
 
+  // Actualizacion (finalización) de mantenimientos
+  const [showFinalizar, setShowFinalizar] = useState(false);
+  const [mantenimientoFinalizar, setMantenimientoFinalizar] = useState<any>(null);
+  const [finalizarForm, setFinalizarForm] = useState({
+    fecha_termino_mantenimiento: "",
+    fecha_egreso_taller: "",
+  });
+  const [finalizarLoading, setFinalizarLoading] = useState(false);
+  const [finalizarError, setFinalizarError] = useState<string | null>(null);
+
+  // ── Búsqueda y filtros — Activos ─────────────────────────────────────────
+ 
+  const [filtroTipoMantActivos, setFiltroTipoMantActivos] = useState("");
+ 
+  // TODO: agregar filtro de marca cuando se añada el campo a la tabla VEHICULOS
+
+  // ── Búsqueda y filtros — Historial ───────────────────────────────────────
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
+  // TODO: agregar filtro de marca en historial cuando se añada el campo a la tabla VEHICULOS
+
+  const fetchResumen = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/mantenimientos/resumen`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResumen(data && typeof data === "object" ? data : { en_mantenimiento_total: 0, por_tipo: [] });
+    } catch { /* no crítico */ }
+    finally { setResumenLoading(false); }
+  };
+
   useEffect(() => {
-    const fetchResumen = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/mantenimientos/resumen`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setResumen(data && typeof data === "object" ? data : { en_mantenimiento_total: 0, por_tipo: [] });
-      } catch { /* no crítico */ }
-      finally { setResumenLoading(false); }
-    };
     fetchResumen();
   }, []);
 
@@ -98,6 +125,36 @@ export function TiposMantenimientoSection() {
     }
   };
 
+  //ACTUALIZAR MANTENIMIENTO
+  const handleFinalizar = async () => {
+    setFinalizarError(null);
+
+    if (!finalizarForm.fecha_termino_mantenimiento || !finalizarForm.fecha_egreso_taller) {
+      setFinalizarError("Completa ambas fechas antes de continuar.");
+      return;
+    }
+
+    setFinalizarLoading(true);
+    try {
+      await finalizarMantenimiento({
+        folio: mantenimientoFinalizar.folio,
+        fecha_egreso_taller: finalizarForm.fecha_egreso_taller,
+        fecha_termino_mantenimiento: finalizarForm.fecha_termino_mantenimiento,
+      });
+      setShowFinalizar(false);
+      setMantenimientoFinalizar(null);
+      // ── recargar tabla Y kpis ──────────────────────────────────
+      await handleSearch();
+      await fetchResumen();
+      // ─────────────────────────────────────────────────────────────────────
+    } catch (e: any) {
+      setFinalizarError(e.message);
+    } finally {
+      setFinalizarLoading(false);
+    }
+  };
+
+  // Ir al historial de un vehículo específico desde la pestaña Activos
   const verHistorial = (num_serie: string) => {
     setQueryHistorial(num_serie);
     setTab("historial");
@@ -112,6 +169,9 @@ export function TiposMantenimientoSection() {
       const matchNumSerie = !filtroNumSerieActivos || m.num_serie.toLowerCase().includes(filtroNumSerieActivos.toLowerCase());
       const matchTipoVeh = !filtroTipoVehActivos || m.tipo_vehiculo === filtroTipoVehActivos;
       return matchQuery && matchNumSerie && matchTipoVeh;
+      const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento === filtroTipoMantActivos;
+      // TODO: agregar matchMarca cuando el campo esté disponible en la BD
+      return matchQuery && matchTipoVeh && matchTipoMant;
     });
   }, [mantenimientos, queryActivos, filtroNumSerieActivos, filtroTipoVehActivos]);
 
@@ -188,9 +248,9 @@ export function TiposMantenimientoSection() {
               <th className={THEME.th}>Marca</th>
               <th className={THEME.th}>Estado</th>
               <th className={THEME.th}>Entrada taller</th>
-              <th className={THEME.th}>Salida taller</th>
               <th className={THEME.th}>Inicio mant.</th>
               <th className={THEME.th}>Término mant.</th>
+              <th className={THEME.th}>Salida taller</th>
               {conAccionHistorial && <th className={`${THEME.th} text-right`}>Acciones</th>}
             </tr>
           </thead>
@@ -216,14 +276,31 @@ export function TiposMantenimientoSection() {
                   <td className={THEME.tcell}>{item.marca}</td>
                   <td className="px-4 py-3"><EstadoBadge estado={item.estado_mantenimiento} /></td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_ingreso_taller)}</td>
-                  <td className={THEME.tcell}>{formatDateTime(item.fecha_egreso_taller)}</td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_inicio_mantenimiento)}</td>
                   <td className={THEME.tcell}>{formatDateTime(item.fecha_termino_mantenimiento)}</td>
+                  <td className={THEME.tcell}>{formatDateTime(item.fecha_egreso_taller)}</td>
                   {conAccionHistorial && (
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => verHistorial(item.num_serie)} className={THEME.btnGhost}>
-                        Ver historial
-                      </button>
+                      <div className="inline-flex gap-2">
+                        <button onClick={() => verHistorial(item.num_serie)} className={THEME.btnGhost}>
+                          Ver historial
+                        </button>
+                        <button
+                          onClick={() => {
+                            const hoy = new Date().toISOString().split("T")[0];
+                            setMantenimientoFinalizar(item);
+                            setFinalizarForm({
+                              fecha_termino_mantenimiento: hoy,
+                              fecha_egreso_taller: hoy,
+                            });
+                            setFinalizarError(null);
+                            setShowFinalizar(true);
+                          }}
+                          className={THEME.btnSuccess}
+                        >
+                          Actualizar
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -483,6 +560,19 @@ export function TiposMantenimientoSection() {
           )}
         </div>
       </div>
+      <ModalFinalizarMantenimiento
+        show={showFinalizar}
+        mantenimiento={mantenimientoFinalizar}
+        form={finalizarForm}
+        setForm={setFinalizarForm}
+        loading={finalizarLoading}
+        error={finalizarError}
+        onClose={() => {
+          setShowFinalizar(false);
+          setMantenimientoFinalizar(null);
+        }}
+        onSave={handleFinalizar}
+      />
     </section>
   );
 }
