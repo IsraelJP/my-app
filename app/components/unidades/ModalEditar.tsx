@@ -76,7 +76,6 @@ export default function ModalEditar({
             >
               <option value="ACTIVO">ACTIVO</option>
               <option value="INACTIVO">INACTIVO</option>
-              <option value="MANTENIMIENTO">MANTENIMIENTO</option>
             </select>
           </div>
 

@@ -39,6 +39,7 @@ export interface MantenimientoRow {
   folio: number;
   num_serie: string;
   matricula: string;
+  marca: string
   tipo_vehiculo: string;
   tipo_mantenimiento: string;
   fecha_ingreso_taller: string | null;

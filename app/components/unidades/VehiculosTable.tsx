@@ -10,10 +10,12 @@ function estatusBadge(estatus: string) {
 
 export default function VehiculosTable({
   vehiculos,
+  marcas,
   loading,
   onVer,
   onEdit,
-  onDelete
+  onDelete,
+  onMantenimiento
 }: any) {
 
   return (
@@ -24,6 +26,7 @@ export default function VehiculosTable({
           <tr>
             <th className={`${THEME.th} w-48`}>Número de serie</th>
             <th className={`${THEME.th} w-52`}>Tipo</th>
+            <th className={`${THEME.th} w-40`}>Marca</th>
             <th className={`${THEME.th} w-36`}>Estatus</th>
             <th className={`${THEME.th} text-right`}>Acciones</th>
           </tr>
@@ -33,7 +36,7 @@ export default function VehiculosTable({
 
           {loading && (
             <tr>
-              <td colSpan={4} className={`px-4 py-6 text-center text-sm ${THEME.muted}`}>
+              <td colSpan={5} className={`px-4 py-6 text-center text-sm ${THEME.muted}`}>
                 Buscando vehículos…
               </td>
             </tr>
@@ -41,60 +44,86 @@ export default function VehiculosTable({
 
           {!loading && vehiculos.length === 0 && (
             <tr>
-              <td colSpan={4} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
+              <td colSpan={5} className={`px-4 py-10 text-center text-sm ${THEME.muted}`}>
                 No se encontraron vehículos
               </td>
             </tr>
           )}
 
-          {!loading && vehiculos.map((v: any) => (
-            <tr key={v.num_serie} className={THEME.trow}>
+          {!loading && vehiculos.map((v: any) => {
 
-              <td className={THEME.tcellMono}>
-                {v.num_serie}
-              </td>
 
-              <td className={THEME.tcell}>
-                {v.descripcion ?? v.tipo ?? "—"}
-              </td>
+            const marcaNombre =
+              v.marca ??
+              marcas?.find((m: any) => m.id_marca === v.id_marca)?.nombre ??
+              "—";
 
-              <td className="px-4 py-3">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(v.estatus)}`}>
-                  {v.estatus}
-                </span>
-              </td>
+            return (
+              <tr key={v.num_serie} className={THEME.trow}>
 
-              <td className="px-4 py-3 text-right">
+                {/* Número de serie */}
+                <td className={THEME.tcellMono}>
+                  {v.num_serie}
+                </td>
 
-                <div className="inline-flex gap-2">
+                {/* Tipo */}
+                <td className={THEME.tcell}>
+                  {v.descripcion ?? v.tipo ?? "—"}
+                </td>
 
-                  <button
-                    onClick={() => onVer(v.num_serie)}
-                    className={THEME.btnGhost}
-                  >
-                    Ver
-                  </button>
+                {/* Marca */}
+                <td className={THEME.tcell}>
+                  {marcaNombre}
+                </td>
 
-                  <button
-                    onClick={() => onEdit(v)}
-                    className={THEME.btnEdit}
-                  >
-                    Editar
-                  </button>
+                {/* Estatus */}
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(v.estatus)}`}>
+                    {v.estatus}
+                  </span>
+                </td>
 
-                  <button
-                    onClick={() => onDelete(v)}
-                    className={THEME.btnDelete}
-                  >
-                    Eliminar
-                  </button>
+                {/* Acciones */}
+                <td className="px-4 py-3 text-right">
 
-                </div>
+                  <div className="inline-flex gap-2">
 
-              </td>
+                    <button
+                      onClick={() => onVer(v.num_serie)}
+                      className={THEME.btnGhost}
+                    >
+                      Ver
+                    </button>
 
-            </tr>
-          ))}
+                    <button
+                      onClick={() => onEdit(v)}
+                      className={THEME.btnEdit}
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      onClick={() => onDelete(v)}
+                      className={THEME.btnDelete}
+                    >
+                      Eliminar
+                    </button>
+                    {v.estatus === "ACTIVO" && (
+                      <button
+                        onClick={() => onMantenimiento(v)}
+                        className={THEME.btnMantenimiento}
+                      >
+                        Iniciar Mantenimiento
+                      </button>
+                    )}
+
+                  </div>
+
+                </td>
+
+              </tr>
+            );
+          })}
 
         </tbody>
       </table>

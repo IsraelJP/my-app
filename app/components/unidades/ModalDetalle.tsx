@@ -13,7 +13,8 @@ export default function ModalDetalle({
   detalle,
   loading,
   error,
-  onClose
+  onClose,
+  onViewHistory
 }: any) {
 
   if (!detalle && !loading && !error) return null;
@@ -25,8 +26,9 @@ export default function ModalDetalle({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6`}>
+      <div className={`relative w-full max-w-md rounded-2xl ${THEME.surface} shadow-2xl p-6 pb-20`}>
 
+        {/* HEADER */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <h2 className={`text-lg font-bold ${THEME.heading}`}>
@@ -40,14 +42,12 @@ export default function ModalDetalle({
             )}
           </div>
 
-          <button
-            onClick={onClose}
-            className={THEME.btnGhost}
-          >
+          <button onClick={onClose} className={THEME.btnGhost}>
             Cerrar ✕
           </button>
         </div>
 
+        {/* LOADING */}
         {loading && (
           <div className="space-y-3">
             {[...Array(4)].map((_, i) => (
@@ -56,20 +56,22 @@ export default function ModalDetalle({
           </div>
         )}
 
+        {/* ERROR */}
         {error && (
           <div className={THEME.errorBox}>
             {error}
           </div>
         )}
 
+        {/* DETALLE */}
         {detalle && !loading && (
-
           <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 
             {[
               { label: "ID", value: detalle.id_vehiculo },
               { label: "Número de serie", value: detalle.num_serie },
               { label: "Matrícula", value: detalle.matricula },
+              { label: "Marca", value: detalle.marca ?? detalle.nombre_marca ?? "—" },
               { label: "Tipo", value: detalle.descripcion },
               { label: "Estatus", value: detalle.estatus, badge: true },
               { label: "En mantenimiento", value: detalle.en_mantenimiento },
@@ -81,13 +83,9 @@ export default function ModalDetalle({
             ].map(({ label, value, badge }) => (
 
               <div key={label} className={`rounded-xl ${THEME.inset} px-3 py-2`}>
-
-                <dt className={THEME.label}>
-                  {label}
-                </dt>
+                <dt className={THEME.label}>{label}</dt>
 
                 <dd className={`mt-0.5 text-sm font-medium ${THEME.heading}`}>
-
                   {badge ? (
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estatusBadge(String(value))}`}
@@ -97,16 +95,31 @@ export default function ModalDetalle({
                   ) : (
                     String(value ?? "—")
                   )}
-
                 </dd>
-
               </div>
 
             ))}
-
           </dl>
-
         )}
+
+        {/* FOOTER */}
+        <div className={`absolute bottom-0 left-0 right-0 p-4 flex gap-3 ${THEME.surface} border-t`}>
+          
+          <button
+            onClick={onClose}
+            className={`flex-1 ${THEME.btnGhost}`}
+          >
+            Cerrar
+          </button>
+
+          <button
+            onClick={() => onViewHistory?.(detalle)}
+            className={`flex-1 ${THEME.btnPrimary}`}
+          >
+            Ver historial
+          </button>
+
+        </div>
 
       </div>
     </div>
