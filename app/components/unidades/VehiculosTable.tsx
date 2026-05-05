@@ -8,6 +8,21 @@ function estatusBadge(estatus: string) {
   return THEME.badgeInactivo;
 }
 
+function getTipoDescripcion(vehiculo: any) {
+  return vehiculo.tipo?.descripcion ?? vehiculo.descripcion ?? "—";
+}
+
+function getMarcaNombre(vehiculo: any, marcas: any[]) {
+  const idMarca = vehiculo.marca?.id_marca ?? vehiculo.id_marca;
+
+  return (
+    vehiculo.marca?.nombre ??
+    vehiculo.nombre_marca ??
+    marcas?.find((m: any) => m.id_marca === idMarca)?.nombre ??
+    "—"
+  );
+}
+
 export default function VehiculosTable({
   vehiculos,
   marcas,
@@ -53,10 +68,7 @@ export default function VehiculosTable({
           {!loading && vehiculos.map((v: any) => {
 
 
-            const marcaNombre =
-              v.marca ??
-              marcas?.find((m: any) => m.id_marca === v.id_marca)?.nombre ??
-              "—";
+            const marcaNombre = getMarcaNombre(v, marcas);
 
             return (
               <tr key={v.num_serie} className={THEME.trow}>
@@ -68,7 +80,7 @@ export default function VehiculosTable({
 
                 {/* Tipo */}
                 <td className={THEME.tcell}>
-                  {v.descripcion ?? v.tipo ?? "—"}
+                  {getTipoDescripcion(v)}
                 </td>
 
                 {/* Marca */}

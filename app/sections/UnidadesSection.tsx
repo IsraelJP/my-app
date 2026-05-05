@@ -525,12 +525,11 @@ const [mantenimientoError, setMantenimientoError] = useState<any>(null);
         onVer={handleVer}
         onEdit={(v: any) => {
           setEditTarget(v);
-          // ✅ CORREGIDO: ahora también guarda id_marca al abrir el modal de editar
           setEditForm({
             matricula: v.matricula,
             estatus: v.estatus === "MANTENIMIENTO" ? "ACTIVO" : v.estatus,
-            id_tipo: v.id_tipo,
-            id_marca: v.id_marca  // ✅ AÑADIDO
+            id_tipo: v.tipo?.id_tipo ?? v.id_tipo ?? "",
+            id_marca: v.marca?.id_marca ?? v.id_marca ?? ""
           });
         }}
         onDelete={(v: any) => setDeleteTarget(v)}
