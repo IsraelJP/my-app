@@ -170,7 +170,9 @@ export function TiposMantenimientoSection() {
     return mantenimientos.filter((m) => {
       if (m.estado_mantenimiento !== "EN_MANTENIMIENTO") return false;
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
-      const matchNumSerie = !filtroNumSerieActivos || m.num_serie.toLowerCase().includes(filtroNumSerieActivos.toLowerCase());
+      const matchNumSerie = !filtroNumSerieActivos || 
+  m.num_serie.toLowerCase().includes(filtroNumSerieActivos.toLowerCase()) ||
+  m.matricula.toLowerCase().includes(filtroNumSerieActivos.toLowerCase());
       const matchTipoVeh = !filtroTipoVehActivos || m.tipo_vehiculo === filtroTipoVehActivos;
       const matchTipoMant = !filtroTipoMantActivos || m.tipo_mantenimiento === filtroTipoMantActivos;
       return matchQuery && matchNumSerie && matchTipoVeh && matchTipoMant;
@@ -182,7 +184,9 @@ export function TiposMantenimientoSection() {
     return mantenimientos.filter((m) => {
       const matchQuery = !q || m.num_serie.toLowerCase().includes(q) || m.matricula.toLowerCase().includes(q) || m.tipo_mantenimiento.toLowerCase().includes(q);
       const matchEstado = !filtroEstadoHist || m.estado_mantenimiento === filtroEstadoHist;
-      const matchNumSerie = !filtroNumSerieHist || m.num_serie.toLowerCase().includes(filtroNumSerieHist.toLowerCase());
+      const matchNumSerie = !filtroNumSerieHist || 
+  m.num_serie.toLowerCase().includes(filtroNumSerieHist.toLowerCase()) ||
+  m.matricula.toLowerCase().includes(filtroNumSerieHist.toLowerCase());
       const matchTipoVeh = !filtroTipoVehHist || m.tipo_vehiculo === filtroTipoVehHist;
       const matchTipoMant = !filtroTipoMantHist || m.tipo_mantenimiento === filtroTipoMantHist;
       const matchMarca = !filtroMarcaHist || m.marca === filtroMarcaHist;
@@ -381,7 +385,7 @@ export function TiposMantenimientoSection() {
                       <input
                         value={filtroNumSerieActivos}
                         onChange={(e) => setFiltroNumSerieActivos(e.target.value)}
-                        placeholder="Buscar por serie..."
+                        placeholder="Buscar por serie o matrícula..."
                         className={`mt-1 w-full ${THEME.input}`}
                       />
                     </div>
@@ -453,11 +457,11 @@ export function TiposMantenimientoSection() {
                       </select>
                     </div>
                     <div>
-                      <label className={THEME.label}>Número de serie</label>
+                      <label className={THEME.label}>Número de serie o matrícula</label>
                       <input
                         value={filtroNumSerieHist}
                         onChange={(e) => setFiltroNumSerieHist(e.target.value)}
-                        placeholder="Buscar por serie..."
+                        placeholder="Buscar por serie o matrícula..."
                         className={`mt-1 w-full ${THEME.input}`}
                       />
                     </div>
