@@ -4,7 +4,7 @@ export async function getVehiculos(params:any) {
 
   const query = new URLSearchParams(params).toString();
 
-  const res = await fetch(`${API_BASE}/vehiculoss/filtro?${query}`);
+  const res = await fetch(`${API_BASE}/vehiculos?${query}`);
 
   if(!res.ok) throw new Error("Error obteniendo vehículos");
 
