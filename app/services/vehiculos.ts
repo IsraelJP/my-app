@@ -22,11 +22,14 @@ export async function getVehiculo(numSerie:string){
 
 export async function crearVehiculo(data:any){
 
+  console.log(data);
+
   const res = await fetch(`${API_BASE}/vehiculos`,{
     method:"POST",
     headers:{ "Content-Type":"application/json"},
     body:JSON.stringify(data)
   });
+    console.log(data)
 
   if(!res.ok) throw new Error("Error creando vehículo");
 
@@ -40,6 +43,7 @@ export async function actualizarVehiculo(numSerie:string,data:any){
     headers:{ "Content-Type":"application/json"},
     body:JSON.stringify(data)
   });
+  console.log(data)
 
   if(!res.ok) throw new Error("Error actualizando vehículo");
 

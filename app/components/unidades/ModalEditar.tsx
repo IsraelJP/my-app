@@ -56,8 +56,12 @@ export default function ModalEditar({
             <input
               value={form.matricula}
               onChange={(e) =>
-                setForm((f: any) => ({ ...f, matricula: e.target.value }))
+                setForm((f: any) => ({
+                  ...f,
+                  matricula: e.target.value.slice(0, 7) 
+                }))
               }
+              maxLength={7}
               className={`mt-1 w-full ${THEME.input}`}
             />
           </div>
