@@ -45,7 +45,10 @@ export async function actualizarVehiculo(numSerie:string,data:any){
   });
   console.log(data)
 
-  if(!res.ok) throw new Error("Error actualizando vehículo");
+  if(!res.ok){
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail ?? "Error actualizando vehículo");
+  }
 
   return res.json();
 }
